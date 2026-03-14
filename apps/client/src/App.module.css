@@ -1,0 +1,8 @@
+.gameContainer {
+  width: 100vw;
+  height: 100vh;
+  background-color: #87CEEB;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+}
