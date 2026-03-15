@@ -1,7 +1,7 @@
 import { useFrame } from '@react-three/fiber';
 import { useKeyboardControls } from '@react-three/drei';
 import { Vector3, Quaternion } from 'three';
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react'; // <-- Добавили useEffect
 import { world } from '../ecs';
 import { socket } from '../socket';
 
@@ -19,9 +19,25 @@ export const MovementSystem = () => {
   const lastPosition = useRef(new Vector3());
   const lastRotation = useRef(new Quaternion());
   const lastAnimation = useRef<string>('Idle');
-
-  // Добавляем счетчик кадров для надежной проверки земли
   const groundedFrames = useRef(0);
+
+  // === СЛУШАЕМ КЛИК ЛЕВОЙ КНОПКОЙ МЫШИ ===
+  useEffect(() => {
+    const handleMouseDown = (e: MouseEvent) => {
+      // e.button === 0 это левая кнопка
+      if (e.button === 0) {
+        const player = localPlayers.first;
+        // Если игрок существует, стоит на земле и еще не атакует
+        if (player && !player.isAttacking && player.currentAnimation !== 'Roll') {
+          player.isAttacking = true;
+          player.attackTimer = 0.6; // Длительность удара в секундах
+        }
+      }
+    };
+
+    window.addEventListener('mousedown', handleMouseDown);
+    return () => window.removeEventListener('mousedown', handleMouseDown);
+  }, []);
 
   useFrame((state, delta) => {
     const { forward, backward, left, right, jump } = get();
@@ -30,21 +46,27 @@ export const MovementSystem = () => {
       if (!entity.isMe || !entity.rigidBody || !entity.threeObject) continue;
 
       const body = entity.rigidBody;
-      const speed = 5;
       const currentVelocity = body.linvel();
 
-      // === 1. УМНАЯ ПРОВЕРКА НА ЗЕМЛЮ ===
-      // Если мы по оси Y почти не двигаемся, увеличиваем счетчик
+      // === ОБНОВЛЯЕМ ТАЙМЕР АТАКИ ===
+      if (entity.isAttacking && entity.attackTimer !== undefined) {
+        entity.attackTimer -= delta;
+        if (entity.attackTimer <= 0) {
+          entity.isAttacking = false; // Удар закончился
+        }
+      }
+
+      // Если мы атакуем, скорость 0 (стоим на месте), иначе 5 (бежим)
+      const speed = entity.isAttacking ? 0 : 5;
+
       if (Math.abs(currentVelocity.y) < 0.05) {
         groundedFrames.current += 1;
       } else {
-        groundedFrames.current = 0; // Если летим - сбрасываем в 0
+        groundedFrames.current = 0;
       }
 
-      // Считаем себя на земле, только если стоим ровно больше 3 кадров
       const isGrounded = groundedFrames.current > 3;
 
-      // === 2. ВЫЧИСЛЯЕМ ВЕКТОР ДВИЖЕНИЯ ===
       state.camera.getWorldDirection(frontVector);
       frontVector.y = 0;
       frontVector.normalize();
@@ -59,8 +81,8 @@ export const MovementSystem = () => {
 
       const isMoving = direction.lengthSq() > 0;
 
-      // === 3. ФИЗИКА (ПОВОРОТ, БЕГ, ПРЫЖОК) ===
-      if (isMoving) {
+      if (isMoving && !entity.isAttacking) {
+        // Поворачиваемся, только если не бьем
         const targetAngle = Math.atan2(direction.x, direction.z);
         targetQuaternion.setFromAxisAngle(upVector, targetAngle);
         entity.threeObject.quaternion.slerp(targetQuaternion, delta * 15);
@@ -69,18 +91,19 @@ export const MovementSystem = () => {
       direction.normalize().multiplyScalar(speed);
       body.setLinvel({ x: direction.x, y: currentVelocity.y, z: direction.z }, true);
 
-      // Прыгаем, только если мы надежно стоим на земле
-      if (jump && isGrounded) {
+      // Прыгать во время атаки нельзя
+      if (jump && isGrounded && !entity.isAttacking) {
         body.applyImpulse({ x: 0, y: 30, z: 0 }, true);
-        groundedFrames.current = 0; // Моментально сбрасываем счетчик, чтобы перейти в состояние полета
+        groundedFrames.current = 0;
       }
 
-      // === 4. АНИМАЦИИ ===
-      // Теперь мы в воздухе всегда, когда не на земле (никаких прерываний в апексе!)
+      // === ВЫБИРАЕМ АНИМАЦИЮ (Удар в приоритете) ===
       const isAirborne = !isGrounded && groundedFrames.current === 0;
 
       let nextAnimation = 'Idle';
-      if (isAirborne) {
+      if (entity.isAttacking) {
+        nextAnimation = 'Sword_Attack';
+      } else if (isAirborne) {
         nextAnimation = 'Roll';
       } else if (isMoving) {
         nextAnimation = 'Run';
@@ -88,7 +111,7 @@ export const MovementSystem = () => {
 
       entity.currentAnimation = nextAnimation;
 
-      // === 5. СЕТЕВАЯ СИНХРОНИЗАЦИЯ ===
+      // === СЕТЕВАЯ СИНХРОНИЗАЦИЯ ===
       const currentPos = body.translation();
       const currentRot = entity.threeObject.quaternion;
 

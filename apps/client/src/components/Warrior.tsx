@@ -54,6 +54,18 @@ export function Warrior({ id, ...props }: WarriorProps) {
   const currentAnim = useRef<ActionName>('Idle');
 
   useEffect(() => {
+    if (actions['Sword_Attack']) {
+      actions['Sword_Attack'].setLoop(THREE.LoopOnce, 1);
+      // eslint-disable-next-line react-hooks/immutability
+      actions['Sword_Attack'].clampWhenFinished = true;
+    }
+
+    // Настраиваем кувырок (тоже 1 раз)
+    if (actions['Roll']) {
+      actions['Roll'].setLoop(THREE.LoopOnce, 1);
+      actions['Roll'].clampWhenFinished = true;
+    }
+
     if (actions['Idle']) {
       actions['Idle'].play();
     }
@@ -73,7 +85,7 @@ export function Warrior({ id, ...props }: WarriorProps) {
 
       if (currentAction && nextAction) {
         // Для прыжка (Roll) делаем переход почти мгновенным (0.05), для остальных - плавным (0.2)
-        const fadeTime = nextAnim === 'Roll' ? 0.05 : 0.2;
+        const fadeTime = nextAnim === 'Roll' || nextAnim === 'Sword_Attack' ? 0.05 : 0.2;
 
         currentAction.fadeOut(fadeTime);
         nextAction.reset().fadeIn(fadeTime).play();
