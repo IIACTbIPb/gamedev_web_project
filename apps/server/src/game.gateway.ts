@@ -51,7 +51,12 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('move')
   handleMove(
     client: Socket, 
-    data: { position: { x: number; y: number; z: number }; rotation: number[]; animation: string }
+    data: { 
+      position: { x: number; y: number; z: number }; 
+      rotation: number[]; 
+      animation: string;
+      isAiming?: boolean;
+    }
   ) {
     if (this.players[client.id]) {
       this.players[client.id].position = data.position;
@@ -63,5 +68,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   handleShoot(client: Socket, arrowData: any) {
     // Просто пересылаем данные стрелы всем остальным игрокам
     client.broadcast.emit('playerShot', arrowData);
+  }
+
+  @SubscribeMessage('arrowHit')
+  handleArrowHit(client: Socket, data: any) {
+    // Просто пересылаем точные координаты застрявшей стрелы всем остальным
+    client.broadcast.emit('arrowHit', data);
   }
 }

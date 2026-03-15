@@ -9,25 +9,10 @@ import { useGraph } from '@react-three/fiber';
 import { useGLTF, useAnimations } from '@react-three/drei';
 import { type GLTF, SkeletonUtils } from 'three-stdlib';
 import { useCharacterAnimation } from '../hooks/useCharacterAnimation';
-
-type ActionName =
-  | 'Bow_Draw'
-  | 'Bow_Shoot'
-  | 'Death'
-  | 'Idle'
-  | 'Idle_Attacking'
-  | 'Idle_Weapon'
-  | 'PickUp'
-  | 'Punch'
-  | 'RecieveHit'
-  | 'RecieveHit_2'
-  | 'Roll'
-  | 'Run'
-  | 'Run_Holding'
-  | 'Walk';
+import type { RangerAnimation } from '../types';
 
 interface GLTFAction extends THREE.AnimationClip {
-  name: ActionName;
+  name: RangerAnimation;
 }
 
 type GLTFResult = GLTF & {
@@ -56,7 +41,7 @@ export function Ranger({ id, ...props }: RangerProps) {
   const { nodes, materials } = useGraph(clone) as unknown as GLTFResult;
   const { actions } = useAnimations(animations, group);
 
-  useCharacterAnimation(id, actions);
+  useCharacterAnimation(id, 'Ranger', actions);
 
   return (
     <group ref={group} {...props} dispose={null}>

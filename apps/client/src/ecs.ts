@@ -2,6 +2,7 @@ import type { CharacterClass } from '@game/shared';
 import type { RapierRigidBody } from '@react-three/rapier';
 import { World } from 'miniplex';
 import type { Object3D } from 'three';
+import type { AnyAnimation } from './types';
 
 // Описываем все возможные компоненты в игре
 export type Entity = {
@@ -15,13 +16,15 @@ export type Entity = {
   // Ссылка на реальный 3D-объект Three.js, чтобы системы могли его двигать
   threeObject?: Object3D;
   rigidBody?: RapierRigidBody; // Ссылка на физическое тело из Rapier
-  currentAnimation?: string;
+  currentAnimation?: AnyAnimation;
   actionTimer?: number;
 
   // === НОВЫЕ ПОЛЯ ДЛЯ СТРЕЛ ===
   isProjectile?: boolean;
   velocity?: { x: number; y: number; z: number };
   lifeTime?: number; // Сколько секунд живет стрела
+  isAiming?: boolean;
+  ownerId?: string;
 
   // === НОВОЕ СВОЙСТВО ДЛЯ КЛАССОВ ===
   classType?: CharacterClass;

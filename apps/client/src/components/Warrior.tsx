@@ -5,24 +5,10 @@ import { useGLTF, useAnimations } from '@react-three/drei';
 import { SkeletonUtils } from 'three-stdlib';
 import type { GLTF } from 'three-stdlib'; // 1. Исправлен импорт типа
 import { useCharacterAnimation } from '../hooks/useCharacterAnimation';
-
-type ActionName =
-  | 'Death'
-  | 'Idle'
-  | 'Idle_Attacking'
-  | 'Idle_Weapon'
-  | 'PickUp'
-  | 'Punch'
-  | 'RecieveHit'
-  | 'Roll'
-  | 'Run'
-  | 'Run_Weapon'
-  | 'Sword_Attack'
-  | 'Sword_Attack2'
-  | 'Walk';
+import type { WarriorAnimation } from '../types';
 
 interface GLTFAction extends THREE.AnimationClip {
-  name: ActionName;
+  name: WarriorAnimation;
 }
 
 type GLTFResult = GLTF & {
@@ -50,7 +36,7 @@ export function Warrior({ id, ...props }: WarriorProps) {
   const { nodes, materials } = useGraph(clone) as unknown as GLTFResult;
   const { actions } = useAnimations(animations, group);
 
-  useCharacterAnimation(id, actions);
+  useCharacterAnimation(id, 'Warrior', actions);
 
   return (
     <group ref={group} {...props} dispose={null}>

@@ -14,7 +14,7 @@ import { world } from './ecs';
 import { CameraFollowSystem } from './systems/CameraFollowSystem';
 import { ProjectileSystem } from './systems/ProjectileSystem';
 import { Projectiles } from './components/Projectiles';
-import { MainMenu } from './components/ui';
+import { Crosshair, MainMenu } from './components/ui';
 
 // Создаем конфиг управления (WASD + стрелочки + Пробел)
 const keyboardMap = [
@@ -38,14 +38,12 @@ function App() {
       world.add(arrowData); // Добавляем чужую стрелу в наш мир
     });
 
-    socket.on('playerMoved', ({ id, position, rotation, animation }) => {
+    socket.on('playerMoved', ({ id, position, rotation, animation, isAiming }) => {
       const entity = world.where((e) => e.id === id).first;
 
       if (entity && entity.rigidBody && !entity.isMe) {
-        // Двигаем физическое тело
         entity.rigidBody.setNextKinematicTranslation(position);
 
-        // Вращаем визуальную модель
         if (entity.threeObject && rotation) {
           entity.threeObject.quaternion.set(rotation[0], rotation[1], rotation[2], rotation[3]);
         }
@@ -53,6 +51,26 @@ function App() {
         if (animation) {
           entity.currentAnimation = animation;
         }
+
+        if (isAiming !== undefined) {
+          entity.isAiming = isAiming;
+        }
+      }
+    });
+
+    socket.on('arrowHit', ({ arrowId, position }) => {
+      // Ищем эту стрелу в мире клона
+      const arrow = world.where((e) => e.id === arrowId).first;
+
+      if (arrow && arrow.position && arrow.velocity) {
+        // Жестко примагничиваем стрелу к правильной точке и обнуляем скорость!
+        arrow.position.x = position.x;
+        arrow.position.y = position.y;
+        arrow.position.z = position.z;
+        arrow.velocity.x = 0;
+        arrow.velocity.y = 0;
+        arrow.velocity.z = 0;
+        arrow.lifeTime = 3; // Укорачиваем жизнь застрявшей стрелы
       }
     });
 
@@ -60,6 +78,7 @@ function App() {
       socket.off('gameState');
       socket.off('playerMoved');
       socket.off('playerShot');
+      socket.off('arrowHit');
     };
   }, []);
 
@@ -72,6 +91,7 @@ function App() {
     <div className={styles.gameContainer}>
       {/* === HTML-ИНТЕРФЕЙС ПОВЕРХ ИГРЫ === */}
       {!isJoined && <MainMenu onSelectClass={handleJoin} />}
+      <Crosshair />
       {/* Оборачиваем Canvas в контроллер клавиатуры */}
       <KeyboardControls map={keyboardMap}>
         <Canvas camera={{ position: [0, 8, 15] }}>
@@ -120,7 +140,7 @@ function App() {
               <Player
                 key={player.id}
                 id={player.id}
-                position={[player.position.x, 5, player.position.z]}
+                position={[player.position.x, player.position.y, player.position.z]}
                 isMe={player.id === socket.id}
                 classType={player.classType}
               />
@@ -131,7 +151,7 @@ function App() {
             makeDefault // Обязательно! Делает контроллер доступным глобально
             enablePan={false} // Отключаем перемещение камеры (мы идем за игроком)
             mouseButtons={{
-              LEFT: THREE.MOUSE.PAN, // Левая кнопка свободна для будущей стрельбы/атаки
+              LEFT: THREE.MOUSE.ROTATE,
               MIDDLE: THREE.MOUSE.DOLLY, // Колесико приближает/отдаляет
               RIGHT: THREE.MOUSE.ROTATE, // Правая кнопка вращает камеру вокруг куба!
             }}

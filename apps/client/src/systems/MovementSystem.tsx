@@ -1,79 +1,61 @@
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import { useKeyboardControls } from '@react-three/drei';
 import { Vector3, Quaternion } from 'three';
-import { useRef, useEffect } from 'react'; // <-- Добавили useEffect
+import { useRef, useEffect } from 'react';
 import { world } from '../ecs';
 import { socket } from '../socket';
+import { CLASSES_CONFIG } from '../classesConfig';
+import type { BaseAnimation } from '../types';
 
-const localPlayers = world.with('rigidBody', 'isMe', 'threeObject');
+const localPlayers = world.with('rigidBody', 'isMe', 'threeObject').where((e) => e.isMe === true);
 
 const direction = new Vector3();
 const frontVector = new Vector3();
 const sideVector = new Vector3();
 const upVector = new Vector3(0, 1, 0);
 const targetQuaternion = new Quaternion();
+const tempPos = new Vector3(); // Вспомогательный вектор для безопасной математики
 
 export const MovementSystem = () => {
   const [, get] = useKeyboardControls();
+  const { camera } = useThree();
 
   const lastPosition = useRef(new Vector3());
   const lastRotation = useRef(new Quaternion());
   const lastAnimation = useRef<string>('Idle');
+  const lastAiming = useRef<boolean>(false);
   const groundedFrames = useRef(0);
 
   // === СЛУШАЕМ КЛИКИ (Универсальная привязка действий) ===
   useEffect(() => {
     const handleMouseDown = (e: MouseEvent) => {
+      if (e.button !== 0) return;
       const player = localPlayers.first;
 
-      if (
-        !player ||
-        (player.actionTimer && player.actionTimer > 0) ||
-        player.currentAnimation === 'Roll'
-      )
+      if (!player || !player.isMe || !player.classType || player.currentAnimation === 'Roll')
         return;
+      if (player.actionTimer && player.actionTimer > 0 && !player.isAiming) return;
 
-      if (e.button === 0) {
-        // --- ЛОГИКА ВОИНА ---
-        if (player.classType === 'Warrior') {
-          player.currentAnimation = 'Sword_Attack';
-          player.actionTimer = 0.6;
-          // (Удар ближнего боя пока просто проигрывает анимацию)
-        }
+      const classLogic = CLASSES_CONFIG[player.classType];
+      classLogic?.onPrimaryAttackStart(player);
+    };
 
-        // --- ЛОГИКА РЕЙНДЖЕРА ---
-        else if (player.classType === 'Ranger') {
-          player.currentAnimation = 'Bow_Shoot';
-          player.actionTimer = 0.5;
+    const handleMouseUp = (e: MouseEvent) => {
+      if (e.button !== 0) return;
+      const player = localPlayers.first;
+      if (!player || !player.isMe || !player.classType) return;
 
-          // Спавним стрелу только для Рейнджера
-          if (player.rigidBody && player.threeObject) {
-            const playerPos = player.rigidBody.translation();
-            const forward = new Vector3(0, 0, 1).applyQuaternion(player.threeObject.quaternion);
-            const arrowSpeed = 25;
-
-            const arrowData = {
-              id: Math.random().toString(36).substr(2, 9),
-              isProjectile: true,
-              position: { x: playerPos.x, y: playerPos.y + 1, z: playerPos.z },
-              velocity: {
-                x: forward.x * arrowSpeed,
-                y: forward.y * arrowSpeed,
-                z: forward.z * arrowSpeed,
-              },
-              lifeTime: 2,
-            };
-
-            world.add(arrowData);
-            socket.emit('shoot', arrowData);
-          }
-        }
-      }
+      const classLogic = CLASSES_CONFIG[player.classType];
+      classLogic?.onPrimaryAttackRelease?.(player, camera);
     };
 
     window.addEventListener('mousedown', handleMouseDown);
-    return () => window.removeEventListener('mousedown', handleMouseDown);
-  }, []);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [camera]);
 
   useFrame((state, delta) => {
     const { forward, backward, left, right, jump } = get();
@@ -87,10 +69,9 @@ export const MovementSystem = () => {
       let isActionLocked = false;
       if (entity.actionTimer !== undefined && entity.actionTimer > 0) {
         entity.actionTimer -= delta;
-        isActionLocked = true; // Мы заняты (например, бьем мечом)
+        isActionLocked = true;
       }
 
-      // Если мы атакуем, скорость 0 (стоим на месте), иначе 5 (бежим)
       const speed = isActionLocked ? 0 : 5;
 
       if (Math.abs(currentVelocity.y) < 0.05) {
@@ -115,8 +96,11 @@ export const MovementSystem = () => {
 
       const isMoving = direction.lengthSq() > 0;
 
-      if (isMoving && !isActionLocked) {
-        // Поворачиваемся, только если не бьем
+      if (entity.isAiming) {
+        const targetAngle = Math.atan2(frontVector.x, frontVector.z);
+        targetQuaternion.setFromAxisAngle(upVector, targetAngle);
+        entity.threeObject.quaternion.slerp(targetQuaternion, delta * 20);
+      } else if (isMoving && !isActionLocked) {
         const targetAngle = Math.atan2(direction.x, direction.z);
         targetQuaternion.setFromAxisAngle(upVector, targetAngle);
         entity.threeObject.quaternion.slerp(targetQuaternion, delta * 15);
@@ -125,18 +109,17 @@ export const MovementSystem = () => {
       direction.normalize().multiplyScalar(speed);
       body.setLinvel({ x: direction.x, y: currentVelocity.y, z: direction.z }, true);
 
-      // Прыгать во время атаки нельзя
       if (jump && isGrounded && !isActionLocked) {
         body.applyImpulse({ x: 0, y: 8, z: 0 }, true);
         groundedFrames.current = 0;
       }
 
-      // === ВЫБИРАЕМ АНИМАЦИЮ (Удар в приоритете) ===
+      // === ВЫБИРАЕМ АНИМАЦИЮ ===
       const isAirborne = !isGrounded && groundedFrames.current === 0;
 
-      const nextAnimation = 'Idle';
-      if (!isActionLocked) {
-        let nextAnim = 'Idle';
+      // Защита: Меняем анимацию бега/простоя ТОЛЬКО если не атакуем и НЕ целимся!
+      if (!isActionLocked && !entity.isAiming) {
+        let nextAnim: BaseAnimation = 'Idle';
         if (isAirborne) {
           nextAnim = 'Roll';
         } else if (isMoving) {
@@ -148,21 +131,29 @@ export const MovementSystem = () => {
       // === СЕТЕВАЯ СИНХРОНИЗАЦИЯ ===
       const currentPos = body.translation();
       const currentRot = entity.threeObject.quaternion;
+      const currentAnim = entity.currentAnimation || 'Idle'; // Берем АКТУАЛЬНУЮ анимацию
+      const currentAiming = !!entity.isAiming;
 
-      const posChanged = lastPosition.current.distanceToSquared(currentPos) > 0.001;
+      tempPos.set(currentPos.x, currentPos.y, currentPos.z);
+
+      const posChanged = lastPosition.current.distanceToSquared(tempPos) > 0.001;
       const rotChanged = lastRotation.current.angleTo(currentRot) > 0.01;
-      const animChanged = nextAnimation !== lastAnimation.current;
+      const animChanged = currentAnim !== lastAnimation.current;
+      const aimingChanged = currentAiming !== lastAiming.current; // Отслеживаем клик мыши!
 
-      if (posChanged || rotChanged || animChanged) {
+      // Если изменилось ХОТЬ ЧТО-ТО из этого списка — шлем пакет на сервер
+      if (posChanged || rotChanged || animChanged || aimingChanged) {
         socket.emit('move', {
           position: currentPos,
           rotation: [currentRot.x, currentRot.y, currentRot.z, currentRot.w],
-          animation: nextAnimation,
+          animation: currentAnim, // <-- Теперь отправляем реальную анимацию выстрела
+          isAiming: currentAiming, // <-- И флаг прицеливания
         });
 
-        lastPosition.current.copy(currentPos);
+        lastPosition.current.copy(tempPos);
         lastRotation.current.copy(currentRot);
-        lastAnimation.current = nextAnimation;
+        lastAnimation.current = currentAnim;
+        lastAiming.current = currentAiming;
       }
     }
   });
