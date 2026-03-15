@@ -34,10 +34,20 @@ export const Player = ({ id, position, isMe }: PlayerProps) => {
     // type="dynamic" - объект подвержен гравитации
     // colliders="cuboid" - форма столкновения (коробка)
     // position здесь задает начальную точку появления
-    <RigidBody ref={rigidBodyRef} type="dynamic" colliders="cuboid" position={position}>
+    <RigidBody
+      ref={rigidBodyRef}
+      type={isMe ? 'dynamic' : 'kinematicPosition'}
+      colliders="cuboid"
+      position={position}
+      enabledRotations={[false, false, false]}
+    >
       <mesh ref={meshRef}>
         <boxGeometry args={[1, 1, 1]} />
         <meshStandardMaterial color={isMe ? 'hotpink' : 'mediumpurple'} />
+        <mesh position={[0, 0.2, 0.51]}>
+          <boxGeometry args={[0.7, 0.2, 0.1]} />
+          <meshStandardMaterial color="black" />
+        </mesh>
       </mesh>
     </RigidBody>
   );

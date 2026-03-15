@@ -3,6 +3,7 @@ import {
   WebSocketServer,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  SubscribeMessage,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { GameState } from '@game/shared';
@@ -39,5 +40,18 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     // Удаляем игрока и обновляем стейт у остальных
     delete this.players[client.id];
     this.server.emit('gameState', this.players);
+  }
+
+  @SubscribeMessage('move')
+  handleMove(
+    client: Socket, 
+    data: { position: { x: number; y: number; z: number }; rotation: number[] }
+  ) {
+    if (this.players[client.id]) {
+      this.players[client.id].position = data.position;
+      
+      // Пересылаем все данные (включая поворот) всем остальным клиентам
+      client.broadcast.emit('playerMoved', { id: client.id, ...data });
+    }
   }
 }
