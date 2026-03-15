@@ -21,18 +21,25 @@ export const MovementSystem = () => {
   const lastAnimation = useRef<string>('Idle');
   const groundedFrames = useRef(0);
 
-  // === СЛУШАЕМ КЛИК ЛЕВОЙ КНОПКОЙ МЫШИ ===
+  // === СЛУШАЕМ КЛИКИ (Универсальная привязка действий) ===
   useEffect(() => {
     const handleMouseDown = (e: MouseEvent) => {
-      // e.button === 0 это левая кнопка
+      const player = localPlayers.first;
+      // Если игрок уже выполняет действие или летит (Roll) - игнорируем клик
+      if (
+        !player ||
+        (player.actionTimer && player.actionTimer > 0) ||
+        player.currentAnimation === 'Roll'
+      )
+        return;
+
       if (e.button === 0) {
-        const player = localPlayers.first;
-        // Если игрок существует, стоит на земле и еще не атакует
-        if (player && !player.isAttacking && player.currentAnimation !== 'Roll') {
-          player.isAttacking = true;
-          player.attackTimer = 0.6; // Длительность удара в секундах
-        }
+        // ЛКМ
+        player.currentAnimation = 'Sword_Attack';
+        player.actionTimer = 0.6; // Длительность блокировки
       }
+      // Сюда легко добавить СКМ (колесико) или кнопки клавиатуры:
+      // else if (e.button === 1) { player.currentAnimation = 'Punch'; player.actionTimer = 0.5; }
     };
 
     window.addEventListener('mousedown', handleMouseDown);
@@ -48,16 +55,14 @@ export const MovementSystem = () => {
       const body = entity.rigidBody;
       const currentVelocity = body.linvel();
 
-      // === ОБНОВЛЯЕМ ТАЙМЕР АТАКИ ===
-      if (entity.isAttacking && entity.attackTimer !== undefined) {
-        entity.attackTimer -= delta;
-        if (entity.attackTimer <= 0) {
-          entity.isAttacking = false; // Удар закончился
-        }
+      let isActionLocked = false;
+      if (entity.actionTimer !== undefined && entity.actionTimer > 0) {
+        entity.actionTimer -= delta;
+        isActionLocked = true; // Мы заняты (например, бьем мечом)
       }
 
       // Если мы атакуем, скорость 0 (стоим на месте), иначе 5 (бежим)
-      const speed = entity.isAttacking ? 0 : 5;
+      const speed = isActionLocked ? 0 : 5;
 
       if (Math.abs(currentVelocity.y) < 0.05) {
         groundedFrames.current += 1;
@@ -81,7 +86,7 @@ export const MovementSystem = () => {
 
       const isMoving = direction.lengthSq() > 0;
 
-      if (isMoving && !entity.isAttacking) {
+      if (isMoving && !isActionLocked) {
         // Поворачиваемся, только если не бьем
         const targetAngle = Math.atan2(direction.x, direction.z);
         targetQuaternion.setFromAxisAngle(upVector, targetAngle);
@@ -92,7 +97,7 @@ export const MovementSystem = () => {
       body.setLinvel({ x: direction.x, y: currentVelocity.y, z: direction.z }, true);
 
       // Прыгать во время атаки нельзя
-      if (jump && isGrounded && !entity.isAttacking) {
+      if (jump && isGrounded && !isActionLocked) {
         body.applyImpulse({ x: 0, y: 30, z: 0 }, true);
         groundedFrames.current = 0;
       }
@@ -100,16 +105,16 @@ export const MovementSystem = () => {
       // === ВЫБИРАЕМ АНИМАЦИЮ (Удар в приоритете) ===
       const isAirborne = !isGrounded && groundedFrames.current === 0;
 
-      let nextAnimation = 'Idle';
-      if (entity.isAttacking) {
-        nextAnimation = 'Sword_Attack';
-      } else if (isAirborne) {
-        nextAnimation = 'Roll';
-      } else if (isMoving) {
-        nextAnimation = 'Run';
+      const nextAnimation = 'Idle';
+      if (!isActionLocked) {
+        let nextAnim = 'Idle';
+        if (isAirborne) {
+          nextAnim = 'Roll';
+        } else if (isMoving) {
+          nextAnim = 'Run';
+        }
+        entity.currentAnimation = nextAnim;
       }
-
-      entity.currentAnimation = nextAnimation;
 
       // === СЕТЕВАЯ СИНХРОНИЗАЦИЯ ===
       const currentPos = body.translation();

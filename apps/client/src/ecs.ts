@@ -15,8 +15,7 @@ export type Entity = {
   threeObject?: Object3D;
   rigidBody?: RapierRigidBody; // Ссылка на физическое тело из Rapier
   currentAnimation?: string;
-  isAttacking?: boolean;
-  attackTimer?: number;
+  actionTimer?: number;
 };
 
 // Создаем и экспортируем наш ECS-мир

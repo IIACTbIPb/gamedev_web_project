@@ -43,6 +43,18 @@ type GLTFResult = GLTF & {
 
 type WarriorProps = Omit<JSX.IntrinsicElements['group'], 'id'> & { id: string };
 
+const ANIM_CONFIG: Partial<Record<ActionName, { loop: boolean; speed: number; fade: number }>> = {
+  Idle: { loop: true, speed: 1, fade: 0.2 },
+  Run: { loop: true, speed: 1, fade: 0.2 },
+  Walk: { loop: true, speed: 1, fade: 0.2 },
+  Roll: { loop: false, speed: 1.5, fade: 0.05 },
+  Sword_Attack: { loop: false, speed: 1, fade: 0.05 },
+  Sword_Attack2: { loop: false, speed: 1, fade: 0.05 },
+  Punch: { loop: false, speed: 1, fade: 0.05 },
+  Death: { loop: false, speed: 1, fade: 0.2 },
+  RecieveHit: { loop: false, speed: 1, fade: 0.05 },
+};
+
 export function Warrior({ id, ...props }: WarriorProps) {
   const group = React.useRef<THREE.Group>(null);
   const { scene, animations } = useGLTF('/Warrior.gltf');
@@ -54,21 +66,22 @@ export function Warrior({ id, ...props }: WarriorProps) {
   const currentAnim = useRef<ActionName>('Idle');
 
   useEffect(() => {
-    if (actions['Sword_Attack']) {
-      actions['Sword_Attack'].setLoop(THREE.LoopOnce, 1);
-      // eslint-disable-next-line react-hooks/immutability
-      actions['Sword_Attack'].clampWhenFinished = true;
-    }
+    // Проходимся по всему словарю и настраиваем движок разом
+    Object.entries(ANIM_CONFIG).forEach(([animName, config]) => {
+      const action = actions[animName as ActionName];
+      if (!action) return;
 
-    // Настраиваем кувырок (тоже 1 раз)
-    if (actions['Roll']) {
-      actions['Roll'].setLoop(THREE.LoopOnce, 1);
-      actions['Roll'].clampWhenFinished = true;
-    }
+      action.setEffectiveTimeScale(config.speed);
 
-    if (actions['Idle']) {
-      actions['Idle'].play();
-    }
+      if (config.loop) {
+        action.setLoop(THREE.LoopRepeat, Infinity);
+      } else {
+        action.setLoop(THREE.LoopOnce, 1);
+        action.clampWhenFinished = true; // Замираем в конце, если не луп
+      }
+    });
+
+    if (actions['Idle']) actions['Idle'].reset().play();
   }, [actions]);
 
   // Каждый кадр проверяем, не сменилась ли анимация в ECS
@@ -78,24 +91,16 @@ export function Warrior({ id, ...props }: WarriorProps) {
 
     const nextAnim = entity.currentAnimation as ActionName;
 
-    // Если стейт изменился - делаем плавный переход (crossfade)
     if (nextAnim !== currentAnim.current) {
       const currentAction = actions[currentAnim.current];
       const nextAction = actions[nextAnim];
 
       if (currentAction && nextAction) {
-        // Для прыжка (Roll) делаем переход почти мгновенным (0.05), для остальных - плавным (0.2)
-        const fadeTime = nextAnim === 'Roll' || nextAnim === 'Sword_Attack' ? 0.05 : 0.2;
+        // Берем время затухания прямо из конфига (или 0.2 по умолчанию)
+        const fadeTime = ANIM_CONFIG[nextAnim]?.fade || 0.2;
 
         currentAction.fadeOut(fadeTime);
         nextAction.reset().fadeIn(fadeTime).play();
-
-        // Магия времени: ускоряем сальто в 1.5 раза!
-        if (nextAnim === 'Roll') {
-          nextAction.setEffectiveTimeScale(1.5);
-        } else {
-          nextAction.setEffectiveTimeScale(1); // Возвращаем нормальную скорость для бега и стойки
-        }
 
         currentAnim.current = nextAnim;
       }
