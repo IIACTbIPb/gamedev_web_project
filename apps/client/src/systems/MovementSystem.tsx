@@ -25,7 +25,7 @@ export const MovementSystem = () => {
   useEffect(() => {
     const handleMouseDown = (e: MouseEvent) => {
       const player = localPlayers.first;
-      // Если игрок уже выполняет действие или летит (Roll) - игнорируем клик
+
       if (
         !player ||
         (player.actionTimer && player.actionTimer > 0) ||
@@ -34,12 +34,41 @@ export const MovementSystem = () => {
         return;
 
       if (e.button === 0) {
-        // ЛКМ
-        player.currentAnimation = 'Sword_Attack';
-        player.actionTimer = 0.6; // Длительность блокировки
+        // --- ЛОГИКА ВОИНА ---
+        if (player.classType === 'Warrior') {
+          player.currentAnimation = 'Sword_Attack';
+          player.actionTimer = 0.6;
+          // (Удар ближнего боя пока просто проигрывает анимацию)
+        }
+
+        // --- ЛОГИКА РЕЙНДЖЕРА ---
+        else if (player.classType === 'Ranger') {
+          player.currentAnimation = 'Bow_Shoot';
+          player.actionTimer = 0.5;
+
+          // Спавним стрелу только для Рейнджера
+          if (player.rigidBody && player.threeObject) {
+            const playerPos = player.rigidBody.translation();
+            const forward = new Vector3(0, 0, 1).applyQuaternion(player.threeObject.quaternion);
+            const arrowSpeed = 25;
+
+            const arrowData = {
+              id: Math.random().toString(36).substr(2, 9),
+              isProjectile: true,
+              position: { x: playerPos.x, y: playerPos.y + 1, z: playerPos.z },
+              velocity: {
+                x: forward.x * arrowSpeed,
+                y: forward.y * arrowSpeed,
+                z: forward.z * arrowSpeed,
+              },
+              lifeTime: 2,
+            };
+
+            world.add(arrowData);
+            socket.emit('shoot', arrowData);
+          }
+        }
       }
-      // Сюда легко добавить СКМ (колесико) или кнопки клавиатуры:
-      // else if (e.button === 1) { player.currentAnimation = 'Punch'; player.actionTimer = 0.5; }
     };
 
     window.addEventListener('mousedown', handleMouseDown);
@@ -98,7 +127,7 @@ export const MovementSystem = () => {
 
       // Прыгать во время атаки нельзя
       if (jump && isGrounded && !isActionLocked) {
-        body.applyImpulse({ x: 0, y: 30, z: 0 }, true);
+        body.applyImpulse({ x: 0, y: 8, z: 0 }, true);
         groundedFrames.current = 0;
       }
 

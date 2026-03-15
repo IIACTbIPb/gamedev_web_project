@@ -1,3 +1,4 @@
+import type { CharacterClass } from '@game/shared';
 import type { RapierRigidBody } from '@react-three/rapier';
 import { World } from 'miniplex';
 import type { Object3D } from 'three';
@@ -16,6 +17,14 @@ export type Entity = {
   rigidBody?: RapierRigidBody; // Ссылка на физическое тело из Rapier
   currentAnimation?: string;
   actionTimer?: number;
+
+  // === НОВЫЕ ПОЛЯ ДЛЯ СТРЕЛ ===
+  isProjectile?: boolean;
+  velocity?: { x: number; y: number; z: number };
+  lifeTime?: number; // Сколько секунд живет стрела
+
+  // === НОВОЕ СВОЙСТВО ДЛЯ КЛАССОВ ===
+  classType?: CharacterClass;
 };
 
 // Создаем и экспортируем наш ECS-мир

@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, KeyboardControls } from '@react-three/drei';
+import { OrbitControls, KeyboardControls, Stars } from '@react-three/drei';
 import * as THREE from 'three';
 import { Physics } from '@react-three/rapier';
-import type { GameState } from '@game/shared';
+import type { CharacterClass, GameState } from '@game/shared';
 
 import { Player } from './components/Player';
 import { Ground } from './components/Ground';
@@ -12,6 +12,9 @@ import styles from './App.module.css';
 import { socket } from './socket';
 import { world } from './ecs';
 import { CameraFollowSystem } from './systems/CameraFollowSystem';
+import { ProjectileSystem } from './systems/ProjectileSystem';
+import { Projectiles } from './components/Projectiles';
+import { MainMenu } from './components/ui';
 
 // Создаем конфиг управления (WASD + стрелочки + Пробел)
 const keyboardMap = [
@@ -23,11 +26,16 @@ const keyboardMap = [
 ];
 
 function App() {
+  const [isJoined, setIsJoined] = useState(false);
   const [players, setPlayers] = useState<GameState>({});
 
   useEffect(() => {
     socket.on('gameState', (state: GameState) => {
       setPlayers(state);
+    });
+
+    socket.on('playerShot', (arrowData) => {
+      world.add(arrowData); // Добавляем чужую стрелу в наш мир
     });
 
     socket.on('playerMoved', ({ id, position, rotation, animation }) => {
@@ -51,16 +59,51 @@ function App() {
     return () => {
       socket.off('gameState');
       socket.off('playerMoved');
+      socket.off('playerShot');
     };
   }, []);
 
+  const handleJoin = (selectedClass: CharacterClass) => {
+    socket.emit('joinGame', selectedClass); // Отправляем серверу наш выбор
+    setIsJoined(true); // Скрываем меню
+  };
+
   return (
     <div className={styles.gameContainer}>
+      {/* === HTML-ИНТЕРФЕЙС ПОВЕРХ ИГРЫ === */}
+      {!isJoined && <MainMenu onSelectClass={handleJoin} />}
       {/* Оборачиваем Canvas в контроллер клавиатуры */}
       <KeyboardControls map={keyboardMap}>
         <Canvas camera={{ position: [0, 8, 15] }}>
-          <ambientLight intensity={0.5} />
-          <directionalLight position={[10, 10, 10]} intensity={1} castShadow />
+          <color attach="background" args={['#020208']} />
+          {/* 2. Звездное небо из Drei */}
+          <Stars
+            radius={100} // Радиус сферы со звездами
+            depth={50} // Глубина
+            count={5000} // Количество звезд
+            factor={4} // Размер звезд
+            saturation={0}
+            fade
+            speed={1} // Скорость мерцания
+          />
+
+          {/* 3. Луна (светящаяся сфера далеко в небе) */}
+          <mesh position={[30, 40, -40]}>
+            <sphereGeometry args={[4, 32, 32]} />
+            <meshBasicMaterial color="#fffacd" /> {/* Бледно-желтый светящийся цвет */}
+          </mesh>
+
+          {/* 4. Освещение (Лунный свет) */}
+          {/* Направленный свет, бьющий прямо из координат Луны */}
+          <directionalLight
+            position={[30, 40, -40]}
+            intensity={1.5}
+            color="#b8c6db" /* Синеватый лунный оттенок */
+            castShadow
+            shadow-mapSize={[2048, 2048]}
+          />
+
+          <ambientLight intensity={0.15} color="#404050" />
 
           <Physics debug>
             <Ground />
@@ -69,6 +112,9 @@ function App() {
             <MovementSystem />
             {/* Наша новая система следования камеры */}
             <CameraFollowSystem />
+            {/* Наша новая система стрельбы */}
+            <ProjectileSystem />
+            <Projectiles />
 
             {Object.values(players).map((player) => (
               <Player
@@ -76,6 +122,7 @@ function App() {
                 id={player.id}
                 position={[player.position.x, 5, player.position.z]}
                 isMe={player.id === socket.id}
+                classType={player.classType}
               />
             ))}
           </Physics>

@@ -1,0 +1,103 @@
+.overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle, rgba(20,20,20,0.9) 0%, rgba(0,0,0,0.95) 100%);
+  z-index: 100; /* Очень высокий z-index поверх всего */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Montserrat', sans-serif; /* Потребуется подключить шрифт в index.html */
+  color: white;
+  user-select: none; /* Запрещаем выделять текст */
+}
+
+.title {
+  font-size: 3.5rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 4px;
+  margin-bottom: 60px;
+  background: linear-gradient(to bottom, #fff 0%, #aaa 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 5px 15px rgba(255,255,255,0.2);
+}
+
+.cardsContainer {
+  display: flex;
+  gap: 40px;
+}
+
+.card {
+  width: 280px;
+  height: 420px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  overflow: hidden; /* Чтобы Canvas не вылезал */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.card:hover {
+  transform: translateY(-10px) scale(1.02);
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 15px 40px rgba(0,0,0,0.5);
+}
+
+/* Стилизация для разных классов */
+.cardWarrior:hover {
+  border-color: #e74c3c;
+  box-shadow: 0 15px 40px rgba(231, 76, 60, 0.3);
+}
+
+.cardRanger:hover {
+  border-color: #2ecc71;
+  box-shadow: 0 15px 40px rgba(46, 204, 113, 0.3);
+}
+
+/* Контейнер для 3D Canvas внутри карточки */
+.modelContainer {
+  width: 100%;
+  height: 250px;
+  margin-top: 10px;
+  pointer-events: none; /* Пропускаем клики сквозь Canvas на карточку */
+}
+
+.cardClass {
+  font-size: 1.5rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-top: 20px;
+  letter-spacing: 2px;
+}
+
+.cardDesc {
+  font-size: 0.9rem;
+  color: #aaa;
+  margin-top: 10px;
+  padding: 0 20px;
+  text-align: center;
+  line-height: 1.4;
+}
+
+/* Скрытый текст "Выбрать", появляющийся при наведении */
+.selectText {
+  position: absolute;
+  bottom: 15px;
+  font-weight: bold;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.card:hover .selectText {
+  opacity: 1;
+}

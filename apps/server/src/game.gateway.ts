@@ -6,7 +6,7 @@ import {
   SubscribeMessage,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { GameState } from '@game/shared';
+import type { CharacterClass, GameState } from '@game/shared';
 
 // Настраиваем CORS, чтобы Vite (порт 5173) мог подключиться к NestJS (порт 3001)
 @WebSocketGateway({ cors: { origin: '*' } })
@@ -19,26 +19,32 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   handleConnection(client: Socket) {
     console.log(`Игрок подключился: ${client.id}`);
+  }
 
-    // Создаем нового игрока со случайной позицией (чтобы кубики не спавнились в одной точке)
+
+
+  handleDisconnect(client: Socket) {
+    console.log(`Игрок отключился: ${client.id}`);
+    if (this.players[client.id]) {
+      delete this.players[client.id];
+      this.server.emit('gameState', this.players);
+    }
+  }
+
+  @SubscribeMessage('joinGame')
+  handleJoinGame(client: Socket, classType: CharacterClass) {
+    console.log(`Игрок ${client.id} выбрал класс: ${classType}`);
+    
     this.players[client.id] = {
       id: client.id,
       position: {
         x: (Math.random() - 0.5) * 5,
-        y: 0,
+        y: 2,
         z: (Math.random() - 0.5) * 5,
       },
+      classType: classType
     };
 
-    // Рассылаем обновленный стейт всем подключенным клиентам
-    this.server.emit('gameState', this.players);
-  }
-
-  handleDisconnect(client: Socket) {
-    console.log(`Игрок отключился: ${client.id}`);
-
-    // Удаляем игрока и обновляем стейт у остальных
-    delete this.players[client.id];
     this.server.emit('gameState', this.players);
   }
 
@@ -51,5 +57,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.players[client.id].position = data.position;
       client.broadcast.emit('playerMoved', { id: client.id, ...data });
     }
+  }
+
+  @SubscribeMessage('shoot')
+  handleShoot(client: Socket, arrowData: any) {
+    // Просто пересылаем данные стрелы всем остальным игрокам
+    client.broadcast.emit('playerShot', arrowData);
   }
 }
