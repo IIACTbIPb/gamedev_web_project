@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { RigidBody, type RapierRigidBody } from '@react-three/rapier';
-import type { Mesh } from 'three';
+import type { Group } from 'three'; // <-- Меняем Mesh на Group
 import { world } from '../ecs';
+import { Warrior } from './Warrior'; // <-- Импортируем нашего Воина!
 
 interface PlayerProps {
   id: string;
@@ -10,19 +11,20 @@ interface PlayerProps {
 }
 
 export const Player = ({ id, position, isMe }: PlayerProps) => {
-  const meshRef = useRef<Mesh>(null!);
+  // Теперь это ссылка на группу (контейнер для модели)
+  const groupRef = useRef<Group>(null!);
   const rigidBodyRef = useRef<RapierRigidBody>(null!);
 
   useEffect(() => {
-    if (!meshRef.current || !rigidBodyRef.current) return;
+    if (!groupRef.current || !rigidBodyRef.current) return;
 
-    // Добавляем сущность с ссылкой на физическое тело
     const entity = world.add({
       id,
       isMe,
       position: { x: position[0], y: position[1], z: position[2] },
-      threeObject: meshRef.current,
+      threeObject: groupRef.current,
       rigidBody: rigidBodyRef.current,
+      currentAnimation: 'Idle',
     });
 
     return () => {
@@ -31,24 +33,19 @@ export const Player = ({ id, position, isMe }: PlayerProps) => {
   }, [id, isMe, position]);
 
   return (
-    // type="dynamic" - объект подвержен гравитации
-    // colliders="cuboid" - форма столкновения (коробка)
-    // position здесь задает начальную точку появления
     <RigidBody
       ref={rigidBodyRef}
       type={isMe ? 'dynamic' : 'kinematicPosition'}
+      // Rapier автоматически вычислит размер физической коробки вокруг модели Воина!
       colliders="cuboid"
       position={position}
       enabledRotations={[false, false, false]}
     >
-      <mesh ref={meshRef}>
-        <boxGeometry args={[1, 1, 1]} />
-        <meshStandardMaterial color={isMe ? 'hotpink' : 'mediumpurple'} />
-        <mesh position={[0, 0.2, 0.51]}>
-          <boxGeometry args={[0.7, 0.2, 0.1]} />
-          <meshStandardMaterial color="black" />
-        </mesh>
-      </mesh>
+      {/* Оборачиваем Воина в group, чтобы наша ECS система могла его крутить */}
+      <group ref={groupRef}>
+        {/* Масштабируем модель, если она окажется слишком большой или маленькой */}
+        <Warrior id={id} scale={1} />
+      </group>
     </RigidBody>
   );
 };

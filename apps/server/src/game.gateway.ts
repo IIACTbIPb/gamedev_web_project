@@ -45,12 +45,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('move')
   handleMove(
     client: Socket, 
-    data: { position: { x: number; y: number; z: number }; rotation: number[] }
+    data: { position: { x: number; y: number; z: number }; rotation: number[]; animation: string }
   ) {
     if (this.players[client.id]) {
       this.players[client.id].position = data.position;
-      
-      // Пересылаем все данные (включая поворот) всем остальным клиентам
       client.broadcast.emit('playerMoved', { id: client.id, ...data });
     }
   }

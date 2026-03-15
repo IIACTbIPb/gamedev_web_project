@@ -30,7 +30,7 @@ function App() {
       setPlayers(state);
     });
 
-    socket.on('playerMoved', ({ id, position, rotation }) => {
+    socket.on('playerMoved', ({ id, position, rotation, animation }) => {
       const entity = world.where((e) => e.id === id).first;
 
       if (entity && entity.rigidBody && !entity.isMe) {
@@ -40,6 +40,10 @@ function App() {
         // Вращаем визуальную модель
         if (entity.threeObject && rotation) {
           entity.threeObject.quaternion.set(rotation[0], rotation[1], rotation[2], rotation[3]);
+        }
+
+        if (animation) {
+          entity.currentAnimation = animation;
         }
       }
     });

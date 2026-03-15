@@ -7,13 +7,14 @@ export type Entity = {
   id?: string;
   isMe?: boolean;
   position?: { x: number; y: number; z: number };
-  
+
   // Добавим новый компонент чисто для клиента
-  rotationSpeed?: number; 
-  
+  rotationSpeed?: number;
+
   // Ссылка на реальный 3D-объект Three.js, чтобы системы могли его двигать
-  threeObject?: Object3D; 
+  threeObject?: Object3D;
   rigidBody?: RapierRigidBody; // Ссылка на физическое тело из Rapier
+  currentAnimation?: string;
 };
 
 // Создаем и экспортируем наш ECS-мир
