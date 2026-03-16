@@ -1,9 +1,9 @@
 import { useFrame } from '@react-three/fiber';
-import { world } from '../ecs';
+import { ECS } from '../ecs';
 import { socket } from '../socket';
 
-const projectiles = world.with('isProjectile', 'position', 'velocity', 'lifeTime', 'ownerId');
-const players = world.with('rigidBody', 'id');
+const projectiles = ECS.world.with('isProjectile', 'position', 'velocity', 'lifeTime', 'ownerId');
+const players = ECS.world.with('rigidBody', 'id');
 
 const GRAVITY = 10;
 
@@ -13,7 +13,7 @@ export const ProjectileSystem = () => {
       entity.lifeTime -= delta;
 
       if (entity.lifeTime <= 0) {
-        world.remove(entity);
+        ECS.world.remove(entity);
         continue;
       }
 
@@ -27,7 +27,6 @@ export const ProjectileSystem = () => {
       entity.position.z += entity.velocity.z * delta;
 
       // === АВТОРИТЕТ СТРЕЛКА ===
-      // Только тот, кто выпустил стрелу, проверяет, попала ли она!
       if (entity.ownerId === socket.id) {
         let hitSomeone = false;
 
@@ -41,8 +40,6 @@ export const ProjectileSystem = () => {
           const dz = entity.position.z - targetPos.z;
 
           // === ИСПРАВЛЕННЫЙ ХИТБОКС ===
-          // Увеличили радиус чуть-чуть (0.3)
-          // Расширили высоту от -0.5 (на случай если мы бьем по ногам) до 2.5 (голова)
           if (dx * dx + dz * dz < 0.3 && dy >= -0.5 && dy <= 2.5) {
             entity.velocity.x = 0;
             entity.velocity.y = 0;
@@ -50,10 +47,13 @@ export const ProjectileSystem = () => {
             entity.lifeTime = Math.min(entity.lifeTime, 3);
             hitSomeone = true;
 
-            // Сообщаем серверу, где именно застряла стрела
+            // Сообщаем серверу, где именно застряла стрела и кто получил урон
             socket.emit('arrowHit', {
               arrowId: entity.id,
               position: { x: entity.position.x, y: entity.position.y, z: entity.position.z },
+              targetId: target.id,
+              damage: 25,
+              shooterId: entity.ownerId,
             });
 
             break;
@@ -66,7 +66,7 @@ export const ProjectileSystem = () => {
           entity.velocity.y = 0;
           entity.velocity.z = 0;
 
-          // Также сообщаем о попадании в землю
+          // Сообщаем о попадании в землю
           socket.emit('arrowHit', {
             arrowId: entity.id,
             position: { x: entity.position.x, y: entity.position.y, z: entity.position.z },

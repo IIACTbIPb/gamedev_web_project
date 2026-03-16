@@ -2,19 +2,21 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { useKeyboardControls } from '@react-three/drei';
 import { Vector3, Quaternion } from 'three';
 import { useRef, useEffect } from 'react';
-import { world } from '../ecs';
+import { ECS } from '../ecs';
 import { socket } from '../socket';
 import { CLASSES_CONFIG } from '../classesConfig';
 import type { BaseAnimation } from '../types';
 
-const localPlayers = world.with('rigidBody', 'isMe', 'threeObject').where((e) => e.isMe === true);
+const localPlayers = ECS.world
+  .with('rigidBody', 'isMe', 'threeObject')
+  .where((e) => e.isMe === true);
 
 const direction = new Vector3();
 const frontVector = new Vector3();
 const sideVector = new Vector3();
 const upVector = new Vector3(0, 1, 0);
 const targetQuaternion = new Quaternion();
-const tempPos = new Vector3(); // Вспомогательный вектор для безопасной математики
+const tempPos = new Vector3();
 
 export const MovementSystem = () => {
   const [, get] = useKeyboardControls();
@@ -26,12 +28,10 @@ export const MovementSystem = () => {
   const lastAiming = useRef<boolean>(false);
   const groundedFrames = useRef(0);
 
-  // === СЛУШАЕМ КЛИКИ (Универсальная привязка действий) ===
   useEffect(() => {
     const handleMouseDown = (e: MouseEvent) => {
       if (e.button !== 0) return;
       const player = localPlayers.first;
-
       if (!player || !player.isMe || !player.classType || player.currentAnimation === 'Roll')
         return;
       if (player.actionTimer && player.actionTimer > 0 && !player.isAiming) return;
@@ -63,6 +63,10 @@ export const MovementSystem = () => {
     for (const entity of localPlayers) {
       if (!entity.isMe || !entity.rigidBody || !entity.threeObject) continue;
 
+      if (entity.hp !== undefined && entity.hp <= 0) {
+        entity.rigidBody.setLinvel({ x: 0, y: entity.rigidBody.linvel().y, z: 0 }, true);
+        continue; // Пропускаем всю логику управления!
+      }
       const body = entity.rigidBody;
       const currentVelocity = body.linvel();
 
@@ -114,10 +118,8 @@ export const MovementSystem = () => {
         groundedFrames.current = 0;
       }
 
-      // === ВЫБИРАЕМ АНИМАЦИЮ ===
       const isAirborne = !isGrounded && groundedFrames.current === 0;
 
-      // Защита: Меняем анимацию бега/простоя ТОЛЬКО если не атакуем и НЕ целимся!
       if (!isActionLocked && !entity.isAiming) {
         let nextAnim: BaseAnimation = 'Idle';
         if (isAirborne) {
@@ -128,10 +130,9 @@ export const MovementSystem = () => {
         entity.currentAnimation = nextAnim;
       }
 
-      // === СЕТЕВАЯ СИНХРОНИЗАЦИЯ ===
       const currentPos = body.translation();
       const currentRot = entity.threeObject.quaternion;
-      const currentAnim = entity.currentAnimation || 'Idle'; // Берем АКТУАЛЬНУЮ анимацию
+      const currentAnim = entity.currentAnimation || 'Idle';
       const currentAiming = !!entity.isAiming;
 
       tempPos.set(currentPos.x, currentPos.y, currentPos.z);
@@ -139,15 +140,14 @@ export const MovementSystem = () => {
       const posChanged = lastPosition.current.distanceToSquared(tempPos) > 0.001;
       const rotChanged = lastRotation.current.angleTo(currentRot) > 0.01;
       const animChanged = currentAnim !== lastAnimation.current;
-      const aimingChanged = currentAiming !== lastAiming.current; // Отслеживаем клик мыши!
+      const aimingChanged = currentAiming !== lastAiming.current;
 
-      // Если изменилось ХОТЬ ЧТО-ТО из этого списка — шлем пакет на сервер
       if (posChanged || rotChanged || animChanged || aimingChanged) {
         socket.emit('move', {
           position: currentPos,
           rotation: [currentRot.x, currentRot.y, currentRot.z, currentRot.w],
-          animation: currentAnim, // <-- Теперь отправляем реальную анимацию выстрела
-          isAiming: currentAiming, // <-- И флаг прицеливания
+          animation: currentAnim,
+          isAiming: currentAiming,
         });
 
         lastPosition.current.copy(tempPos);

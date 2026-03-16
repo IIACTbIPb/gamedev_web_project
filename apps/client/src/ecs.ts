@@ -3,6 +3,7 @@ import type { RapierRigidBody } from '@react-three/rapier';
 import { World } from 'miniplex';
 import type { Object3D } from 'three';
 import type { AnyAnimation } from './types';
+import createReactAPI from 'miniplex-react';
 
 // Описываем все возможные компоненты в игре
 export type Entity = {
@@ -26,9 +27,13 @@ export type Entity = {
   isAiming?: boolean;
   ownerId?: string;
 
+  hp?: number;
+  maxHp?: number;
+
   // === НОВОЕ СВОЙСТВО ДЛЯ КЛАССОВ ===
   classType?: CharacterClass;
 };
 
 // Создаем и экспортируем наш ECS-мир
-export const world = new World<Entity>();
+const world = new World<Entity>();
+export const ECS = createReactAPI(world);

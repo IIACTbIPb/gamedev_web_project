@@ -1,19 +1,17 @@
 import { useEffect, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { world } from '../ecs';
+import { ECS } from '../ecs'; // <-- Берем ECS
 import { CLASSES_CONFIG } from '../classesConfig';
 import type { CharacterClass } from '@game/shared';
 import type { AnimSettings, AnyAnimation } from '../types';
 
 export const useCharacterAnimation = (
   id: string,
-  classType: CharacterClass, // <-- Теперь хук знает, какой это класс
+  classType: CharacterClass,
   actions: Record<string, THREE.AnimationAction | null>,
 ) => {
   const currentAnim = useRef<string>('Idle');
-
-  // Берем анимации конкретного класса из нашего реестра
   const classAnimations = CLASSES_CONFIG[classType].animations;
 
   useEffect(() => {
@@ -36,7 +34,7 @@ export const useCharacterAnimation = (
   }, [actions, classAnimations]);
 
   useFrame(() => {
-    const entity = world.where((e) => e.id === id).first;
+    const entity = ECS.world.where((e) => e.id === id).first;
     if (!entity || !entity.currentAnimation) return;
 
     const nextAnim = entity.currentAnimation as AnyAnimation;
@@ -46,7 +44,6 @@ export const useCharacterAnimation = (
       const nextAction = actions[nextAnim];
 
       if (currentAction && nextAction) {
-        // Ищем fade настройки в конфиге класса
         const animConfig = classAnimations[nextAnim as keyof typeof classAnimations];
         const fadeTime = animConfig?.fade || 0.2;
 

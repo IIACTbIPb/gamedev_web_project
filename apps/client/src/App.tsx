@@ -10,13 +10,13 @@ import { Ground } from './components/Ground';
 import { MovementSystem } from './systems/MovementSystem';
 import styles from './App.module.css';
 import { socket } from './socket';
-import { world } from './ecs';
+import { ECS } from './ecs'; // <-- Используем обновленные импорты
 import { CameraFollowSystem } from './systems/CameraFollowSystem';
 import { ProjectileSystem } from './systems/ProjectileSystem';
 import { Projectiles } from './components/Projectiles';
-import { Crosshair, MainMenu } from './components/ui';
+import { Crosshair, DeathScreen, MainMenu, PlayerHUD } from './components/ui';
+import { useUIStore } from './store/uiStore';
 
-// Создаем конфиг управления (WASD + стрелочки + Пробел)
 const keyboardMap = [
   { name: 'forward', keys: ['ArrowUp', 'KeyW'] },
   { name: 'backward', keys: ['ArrowDown', 'KeyS'] },
@@ -35,11 +35,12 @@ function App() {
     });
 
     socket.on('playerShot', (arrowData) => {
-      world.add(arrowData); // Добавляем чужую стрелу в наш мир
+      // Спавним стрелу (пока оставляем императивно, это нормально для снарядов)
+      ECS.world.add(arrowData);
     });
 
     socket.on('playerMoved', ({ id, position, rotation, animation, isAiming }) => {
-      const entity = world.where((e) => e.id === id).first;
+      const entity = ECS.world.where((e) => e.id === id).first;
 
       if (entity && entity.rigidBody && !entity.isMe) {
         entity.rigidBody.setNextKinematicTranslation(position);
@@ -47,11 +48,9 @@ function App() {
         if (entity.threeObject && rotation) {
           entity.threeObject.quaternion.set(rotation[0], rotation[1], rotation[2], rotation[3]);
         }
-
         if (animation) {
           entity.currentAnimation = animation;
         }
-
         if (isAiming !== undefined) {
           entity.isAiming = isAiming;
         }
@@ -59,18 +58,55 @@ function App() {
     });
 
     socket.on('arrowHit', ({ arrowId, position }) => {
-      // Ищем эту стрелу в мире клона
-      const arrow = world.where((e) => e.id === arrowId).first;
+      const arrow = ECS.world.where((e) => e.id === arrowId).first;
 
       if (arrow && arrow.position && arrow.velocity) {
-        // Жестко примагничиваем стрелу к правильной точке и обнуляем скорость!
         arrow.position.x = position.x;
         arrow.position.y = position.y;
         arrow.position.z = position.z;
         arrow.velocity.x = 0;
         arrow.velocity.y = 0;
         arrow.velocity.z = 0;
-        arrow.lifeTime = 3; // Укорачиваем жизнь застрявшей стрелы
+        arrow.lifeTime = 3;
+      }
+    });
+
+    socket.on('playerHpChanged', ({ id, hp, maxHp }) => {
+      const entity = ECS.world.where((e) => e.id === id).first;
+      if (entity) {
+        // Прямое обновление ECS (React об этом не знает, и это хорошо для оптимизации)
+        ECS.world.update(entity, { hp, maxHp });
+
+        // Дергаем интерфейс только если это мы
+        if (entity.isMe) {
+          useUIStore.getState().setHp(hp, maxHp);
+        } else {
+          useUIStore.getState().setPlayerHp(id, hp, maxHp);
+        }
+      }
+    });
+
+    socket.on('playerDied', ({ victimId, killerId }) => {
+      const entity = ECS.world.where((e) => e.id === victimId).first;
+      if (entity) {
+        ECS.world.update(entity, { currentAnimation: 'Death' });
+
+        if (entity.isMe) {
+          useUIStore.getState().setDeathState(true, killerId);
+        }
+      }
+    });
+
+    socket.on('playerRespawned', ({ id, position }) => {
+      const entity = ECS.world.where((e) => e.id === id).first;
+
+      if (entity) {
+        ECS.world.update(entity, { currentAnimation: 'Idle' });
+
+        if (entity.isMe && entity.rigidBody) {
+          entity.rigidBody.setTranslation(position, true);
+          entity.rigidBody.setLinvel({ x: 0, y: 0, z: 0 }, true); // Гасим инерцию падения
+        }
       }
     });
 
@@ -79,63 +115,52 @@ function App() {
       socket.off('playerMoved');
       socket.off('playerShot');
       socket.off('arrowHit');
+      socket.off('playerHpChanged');
+      socket.off('playerDied');
+      socket.off('playerRespawned');
     };
   }, []);
 
   const handleJoin = (selectedClass: CharacterClass) => {
-    socket.emit('joinGame', selectedClass); // Отправляем серверу наш выбор
-    setIsJoined(true); // Скрываем меню
+    socket.emit('joinGame', selectedClass);
+    useUIStore.getState().setClassType(selectedClass);
+    setIsJoined(true);
   };
 
   return (
     <div className={styles.gameContainer}>
-      {/* === HTML-ИНТЕРФЕЙС ПОВЕРХ ИГРЫ === */}
       {!isJoined && <MainMenu onSelectClass={handleJoin} />}
       <Crosshair />
-      {/* Оборачиваем Canvas в контроллер клавиатуры */}
+      {isJoined && <PlayerHUD />}
+      <DeathScreen />
+
       <KeyboardControls map={keyboardMap}>
         <Canvas camera={{ position: [0, 8, 15] }}>
           <color attach="background" args={['#020208']} />
-          {/* 2. Звездное небо из Drei */}
-          <Stars
-            radius={100} // Радиус сферы со звездами
-            depth={50} // Глубина
-            count={5000} // Количество звезд
-            factor={4} // Размер звезд
-            saturation={0}
-            fade
-            speed={1} // Скорость мерцания
-          />
+          <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
 
-          {/* 3. Луна (светящаяся сфера далеко в небе) */}
           <mesh position={[30, 40, -40]}>
             <sphereGeometry args={[4, 32, 32]} />
-            <meshBasicMaterial color="#fffacd" /> {/* Бледно-желтый светящийся цвет */}
+            <meshBasicMaterial color="#fffacd" />
           </mesh>
-
-          {/* 4. Освещение (Лунный свет) */}
-          {/* Направленный свет, бьющий прямо из координат Луны */}
           <directionalLight
             position={[30, 40, -40]}
             intensity={1.5}
-            color="#b8c6db" /* Синеватый лунный оттенок */
+            color="#b8c6db"
             castShadow
             shadow-mapSize={[2048, 2048]}
           />
-
           <ambientLight intensity={0.15} color="#404050" />
 
-          <Physics debug>
+          <Physics debug={false}>
+            {' '}
+            {/* Можно отключить дебаг физики, если мешает */}
             <Ground />
-
-            {/* Наша новая система движения */}
             <MovementSystem />
-            {/* Наша новая система следования камеры */}
             <CameraFollowSystem />
-            {/* Наша новая система стрельбы */}
             <ProjectileSystem />
             <Projectiles />
-
+            {/* Рендерим игроков */}
             {Object.values(players).map((player) => (
               <Player
                 key={player.id}
@@ -143,17 +168,19 @@ function App() {
                 position={[player.position.x, player.position.y, player.position.z]}
                 isMe={player.id === socket.id}
                 classType={player.classType}
+                hp={player.hp}
+                maxHp={player.maxHp}
               />
             ))}
           </Physics>
 
           <OrbitControls
-            makeDefault // Обязательно! Делает контроллер доступным глобально
-            enablePan={false} // Отключаем перемещение камеры (мы идем за игроком)
+            makeDefault
+            enablePan={false}
             mouseButtons={{
               LEFT: THREE.MOUSE.ROTATE,
-              MIDDLE: THREE.MOUSE.DOLLY, // Колесико приближает/отдаляет
-              RIGHT: THREE.MOUSE.ROTATE, // Правая кнопка вращает камеру вокруг куба!
+              MIDDLE: THREE.MOUSE.DOLLY,
+              RIGHT: THREE.MOUSE.ROTATE,
             }}
           />
         </Canvas>
