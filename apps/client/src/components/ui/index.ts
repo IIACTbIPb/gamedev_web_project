@@ -3,3 +3,4 @@ export { Crosshair } from './Crosshair/Crosshair';
 export { HpBar } from './HpBar/HpBar';
 export { PlayerHUD } from './PlayerHUD/PlayerHUD';
 export { DeathScreen } from './DeathScreen/DeathScreen';
+export { SettingsMenu } from './SettingsMenu/SettingsMenu';

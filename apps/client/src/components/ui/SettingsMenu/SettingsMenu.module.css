@@ -1,0 +1,78 @@
+.overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  color: white;
+  font-family: sans-serif;
+}
+
+.modal {
+  background-color: #1e1e24;
+  padding: 30px;
+  border-radius: 12px;
+  width: 400px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.title {
+  margin-top: 0;
+  text-align: center;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #333;
+}
+
+.btn {
+  padding: 8px 16px;
+  background: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.btnDay {
+  background: #FFD700;
+  color: #000;
+}
+
+.btnNight {
+  background: #333;
+  color: #fff;
+}
+
+.btnListening {
+  background: #FF4500;
+}
+
+.btnDefault {
+  background: #444;
+}
+
+.btnReset {
+  background: #d32f2f;
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20px;
+}
+
+.actionName {
+  text-transform: capitalize;
+}

@@ -1,33 +1,26 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, KeyboardControls, Stars } from '@react-three/drei';
+import { OrbitControls, KeyboardControls, Stars, Environment } from '@react-three/drei';
 import * as THREE from 'three';
 import { Physics } from '@react-three/rapier';
 import type { CharacterClass, GameState } from '@game/shared';
 
-import { Player } from './components/Player';
-import { Ground } from './components/Ground';
-import { MovementSystem } from './systems/MovementSystem';
+import { Player } from './components/characters';
 import styles from './App.module.css';
 import { socket } from './socket';
-import { ECS } from './ecs'; // <-- Используем обновленные импорты
-import { CameraFollowSystem } from './systems/CameraFollowSystem';
-import { ProjectileSystem } from './systems/ProjectileSystem';
-import { Projectiles } from './components/Projectiles';
-import { Crosshair, DeathScreen, MainMenu, PlayerHUD } from './components/ui';
+import { ECS } from './ecs';
+import { ProjectileSystem, CameraFollowSystem, MovementSystem } from './systems';
+import { Crosshair, DeathScreen, MainMenu, PlayerHUD, SettingsMenu } from './components/ui';
 import { useUIStore } from './store/uiStore';
-
-const keyboardMap = [
-  { name: 'forward', keys: ['ArrowUp', 'KeyW'] },
-  { name: 'backward', keys: ['ArrowDown', 'KeyS'] },
-  { name: 'left', keys: ['ArrowLeft', 'KeyA'] },
-  { name: 'right', keys: ['ArrowRight', 'KeyD'] },
-  { name: 'jump', keys: ['Space'] },
-];
+import { WarriorStatue } from './components/props';
+import { Projectiles, Ground } from './components/word';
+import { PathfinderNPC } from './components/npcs';
+import { useSettingsStore } from './store';
 
 function App() {
   const [isJoined, setIsJoined] = useState(false);
   const [players, setPlayers] = useState<GameState>({});
+  const { isNight, keybinds } = useSettingsStore();
 
   useEffect(() => {
     socket.on('gameState', (state: GameState) => {
@@ -121,6 +114,22 @@ function App() {
     };
   }, []);
 
+  const keyboardMap = useMemo(
+    () => [
+      { name: 'forward', keys: keybinds.forward },
+      { name: 'backward', keys: keybinds.backward },
+      { name: 'left', keys: keybinds.left },
+      { name: 'right', keys: keybinds.right },
+      { name: 'jump', keys: keybinds.jump },
+    ],
+    [keybinds],
+  );
+
+  // Настройки освещения и цвета в зависимости от времени суток
+  const bgColor = isNight ? '#020208' : '#87CEEB'; // Космос или Голубое небо
+  const ambientLightIntensity = isNight ? 0.15 : 0.8;
+  const directionalLightIntensity = isNight ? 1.5 : 2.5;
+
   const handleJoin = (selectedClass: CharacterClass) => {
     socket.emit('joinGame', selectedClass);
     useUIStore.getState().setClassType(selectedClass);
@@ -133,11 +142,12 @@ function App() {
       <Crosshair />
       {isJoined && <PlayerHUD />}
       <DeathScreen />
+      <SettingsMenu />
 
       <KeyboardControls map={keyboardMap}>
         <Canvas camera={{ position: [0, 8, 15] }}>
-          <color attach="background" args={['#020208']} />
-          <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
+          <color attach="background" args={[bgColor]} />
+          {isNight && <Stars radius={100} depth={50} count={5000} factor={4} fade />}
 
           <mesh position={[30, 40, -40]}>
             <sphereGeometry args={[4, 32, 32]} />
@@ -145,17 +155,22 @@ function App() {
           </mesh>
           <directionalLight
             position={[30, 40, -40]}
-            intensity={1.5}
-            color="#b8c6db"
+            intensity={directionalLightIntensity}
+            color={isNight ? '#b8c6db' : '#ffffff'}
             castShadow
             shadow-mapSize={[2048, 2048]}
           />
-          <ambientLight intensity={0.15} color="#404050" />
+          <ambientLight intensity={ambientLightIntensity} color={isNight ? '#404050' : '#ffffff'} />
+          <Environment preset="city" environmentIntensity={0.3} />
 
           <Physics debug={false}>
-            {' '}
             {/* Можно отключить дебаг физики, если мешает */}
             <Ground />
+            {/* Статуя где-то вдалеке */}
+            <WarriorStatue position={[0, 2, -15]} scale={2} />
+            {/* NPCs */}
+            <PathfinderNPC position={[-35, 0, 5]} rotation={[0, 6, 0]} />
+            {/* Системы */}
             <MovementSystem />
             <CameraFollowSystem />
             <ProjectileSystem />

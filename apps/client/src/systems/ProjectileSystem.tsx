@@ -49,7 +49,7 @@ export const ProjectileSystem = () => {
 
             // Сообщаем серверу, где именно застряла стрела и кто получил урон
             socket.emit('arrowHit', {
-              arrowId: entity.id,
+              arrowId: entity.id!,
               position: { x: entity.position.x, y: entity.position.y, z: entity.position.z },
               targetId: target.id,
               damage: 25,
@@ -68,7 +68,7 @@ export const ProjectileSystem = () => {
 
           // Сообщаем о попадании в землю
           socket.emit('arrowHit', {
-            arrowId: entity.id,
+            arrowId: entity.id!,
             position: { x: entity.position.x, y: entity.position.y, z: entity.position.z },
           });
         }

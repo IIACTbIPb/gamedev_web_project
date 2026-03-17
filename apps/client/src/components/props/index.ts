@@ -1,0 +1,1 @@
+export { WarriorStatue } from './WarriorStatue';

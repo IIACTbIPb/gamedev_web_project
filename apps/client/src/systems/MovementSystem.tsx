@@ -5,7 +5,7 @@ import { useRef, useEffect } from 'react';
 import { ECS } from '../ecs';
 import { socket } from '../socket';
 import { CLASSES_CONFIG } from '../classesConfig';
-import type { BaseAnimation } from '../types';
+import type { BaseAnimation } from '@game/shared';
 
 const localPlayers = ECS.world
   .with('rigidBody', 'isMe', 'threeObject')
@@ -35,6 +35,7 @@ export const MovementSystem = () => {
       if (!player || !player.isMe || !player.classType || player.currentAnimation === 'Roll')
         return;
       if (player.actionTimer && player.actionTimer > 0 && !player.isAiming) return;
+      if ((e.target as HTMLElement).tagName !== 'CANVAS') return;
 
       const classLogic = CLASSES_CONFIG[player.classType];
       classLogic?.onPrimaryAttackStart(player);
@@ -44,6 +45,7 @@ export const MovementSystem = () => {
       if (e.button !== 0) return;
       const player = localPlayers.first;
       if (!player || !player.isMe || !player.classType) return;
+      if ((e.target as HTMLElement).tagName !== 'CANVAS') return;
 
       const classLogic = CLASSES_CONFIG[player.classType];
       classLogic?.onPrimaryAttackRelease?.(player, camera);

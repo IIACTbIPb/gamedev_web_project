@@ -1,0 +1,1 @@
+export { PathfinderNPC } from './PathfinderNPC';

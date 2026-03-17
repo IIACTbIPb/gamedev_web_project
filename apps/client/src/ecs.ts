@@ -1,8 +1,7 @@
-import type { CharacterClass } from '@game/shared';
+import type { AnyAnimation, CharacterClass } from '@game/shared';
 import type { RapierRigidBody } from '@react-three/rapier';
 import { World } from 'miniplex';
 import type { Object3D } from 'three';
-import type { AnyAnimation } from './types';
 import createReactAPI from 'miniplex-react';
 
 // Описываем все возможные компоненты в игре

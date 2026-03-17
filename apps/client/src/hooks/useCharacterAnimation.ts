@@ -3,8 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { ECS } from '../ecs'; // <-- Берем ECS
 import { CLASSES_CONFIG } from '../classesConfig';
-import type { CharacterClass } from '@game/shared';
-import type { AnimSettings, AnyAnimation } from '../types';
+import type { AnimSettings, AnyAnimation, CharacterClass } from '@game/shared';
 
 export const useCharacterAnimation = (
   id: string,

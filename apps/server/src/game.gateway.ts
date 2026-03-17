@@ -6,24 +6,34 @@ import {
   SubscribeMessage,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import type { CharacterClass, GameState } from '@game/shared';
+import type { 
+  CharacterClass, 
+  ClientToServerEvents, 
+  GameState, 
+  ServerToClientEvents,
+  MovePayload,
+  ProjectilePayload,
+  ArrowHitPayload,
+  MeleeHitPayload
+} from '@game/shared';
+
+// Создаем удобный алиас для строго типизированного сокета клиента
+type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 
 // Настраиваем CORS, чтобы Vite (порт 5173) мог подключиться к NestJS (порт 3001)
 @WebSocketGateway({ cors: { origin: '*' } })
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
-  server: Server;
-
+  server: Server<ClientToServerEvents, ServerToClientEvents>;
+  
   // Игровой стейт в памяти сервера
   private players: GameState = {};
 
-  handleConnection(client: Socket) {
+  handleConnection(client: TypedSocket) {
     console.log(`Игрок подключился: ${client.id}`);
   }
 
-
-
-  handleDisconnect(client: Socket) {
+  handleDisconnect(client: TypedSocket) {
     console.log(`Игрок отключился: ${client.id}`);
     if (this.players[client.id]) {
       delete this.players[client.id];
@@ -32,7 +42,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('joinGame')
-  handleJoinGame(client: Socket, classType: CharacterClass) {
+  handleJoinGame(client: TypedSocket, classType: CharacterClass) {
     console.log(`Игрок ${client.id} выбрал класс: ${classType}`);
     
     this.players[client.id] = {
@@ -51,15 +61,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('move')
-  handleMove(
-    client: Socket, 
-    data: { 
-      position: { x: number; y: number; z: number }; 
-      rotation: number[]; 
-      animation: string;
-      isAiming?: boolean;
-    }
-  ) {
+  handleMove(client: TypedSocket, data: MovePayload) {
     if (this.players[client.id]) {
       this.players[client.id].position = data.position;
       client.broadcast.emit('playerMoved', { id: client.id, ...data });
@@ -67,19 +69,17 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('shoot')
-  handleShoot(client: Socket, arrowData: any) {
-    // Просто пересылаем данные стрелы всем остальным игрокам
+  handleShoot(client: TypedSocket, arrowData: ProjectilePayload) {
     client.broadcast.emit('playerShot', arrowData);
   }
 
   @SubscribeMessage('arrowHit')
-  handleArrowHit(client: Socket, data: { arrowId: string, position: any, targetId?: string, damage?: number, shooterId?: string }) {
+  handleArrowHit(client: TypedSocket, data: ArrowHitPayload) {
     client.broadcast.emit('arrowHit', data);
 
     if (data.targetId && this.players[data.targetId]) {
       const target = this.players[data.targetId];
       
-      // Если игрок уже мертв — игнорируем урон
       if (target.hp <= 0) return;
 
       target.hp -= (data.damage || 25); 
@@ -87,10 +87,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       if (target.hp <= 0) {
         target.hp = 0;
         
-        // Отправляем всем событие смерти
         this.server.emit('playerDied', {
           victimId: target.id,
-          killerId: data.shooterId
+          killerId: data.shooterId || null
         });
       }
 
@@ -103,15 +102,12 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('respawn')
-  handleRespawn(client: Socket) {
+  handleRespawn(client: TypedSocket) {
     const player = this.players[client.id];
     if (player) {
-      // 1. Восстанавливаем ХП
       player.hp = player.maxHp;
-      // 2. Кидаем в случайную точку
       player.position = { x: (Math.random() - 0.5) * 10, y: 2, z: (Math.random() - 0.5) * 10 };
       
-      // Обновляем общий стейт
       this.server.emit('gameState', this.players);
       
       this.server.emit('playerHpChanged', {
@@ -128,16 +124,14 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('meleeHit')
-  handleMeleeHit(client: Socket, data: { targetId: string, damage: number, shooterId: string }) {
+  handleMeleeHit(client: TypedSocket, data: MeleeHitPayload) {
     if (data.targetId && this.players[data.targetId]) {
       const target = this.players[data.targetId];
       
-      // Если враг уже мертв — игнорируем
       if (target.hp <= 0) return;
 
       target.hp -= data.damage;
 
-      // Логика смерти (такая же, как у стрел)
       if (target.hp <= 0) {
         target.hp = 0;
         this.server.emit('playerDied', {

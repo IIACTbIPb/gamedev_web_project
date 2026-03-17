@@ -1,7 +1,7 @@
 import { Canvas } from '@react-three/fiber';
 import type { CharacterClass } from '@game/shared';
 import styles from './MainMenu.module.css';
-import { ModelPreview } from '../../previews/ModelPreview';
+import { ModelPreview } from '../previews';
 
 interface MainMenuProps {
   onSelectClass: (selectedClass: CharacterClass) => void;

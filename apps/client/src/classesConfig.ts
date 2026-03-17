@@ -2,7 +2,7 @@ import { Vector3, Camera, Vector2, Raycaster } from 'three';
 import { ECS } from './ecs'; // <-- Обновили импорт
 import { socket } from './socket';
 import type { Entity } from './ecs';
-import type { AnimSettings, BaseAnimation, RangerAnimation, WarriorAnimation } from './types';
+import type { AnimSettings, BaseAnimation, RangerAnimation, WarriorAnimation } from '@game/shared';
 
 const BASE_ANIMATIONS: Record<BaseAnimation, AnimSettings> = {
   Idle: { loop: true, speed: 1, fade: 0.2 },
