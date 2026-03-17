@@ -31,6 +31,14 @@ const CLASSES_DATA: {
     modelScale: 0.8,
     modelPos: [0, -1.5, 0],
   },
+  {
+    type: 'Rogue',
+    name: 'Разбойник',
+    desc: 'Мастер скрытности и неожиданных атак',
+    modelUrl: '/Rogue.gltf',
+    modelScale: 0.8,
+    modelPos: [0, -1.5, 0],
+  },
 ];
 
 export const MainMenu = ({ onSelectClass }: MainMenuProps) => {

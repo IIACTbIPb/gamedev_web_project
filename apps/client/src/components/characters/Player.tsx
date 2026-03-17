@@ -7,6 +7,7 @@ import type { CharacterClass } from '@game/shared';
 import { HpBar } from '../ui'; // Убедись, что путь импорта верный
 import { useUIStore } from '../../store/uiStore';
 import { Ranger } from './Ranger';
+import { Rogue } from './Rogue';
 
 interface PlayerProps {
   id: string;
@@ -24,6 +25,7 @@ type ModelProps = Omit<JSX.IntrinsicElements['group'], 'id'> & {
 const CLASS_MODELS: Record<CharacterClass, React.ComponentType<ModelProps>> = {
   Warrior: Warrior,
   Ranger: Ranger,
+  Rogue: Rogue,
 };
 
 export const Player = ({ id, position, isMe, classType = 'Warrior', hp, maxHp }: PlayerProps) => {

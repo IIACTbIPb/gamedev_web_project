@@ -1,4 +1,4 @@
-export type CharacterClass = 'Warrior' | 'Ranger';
+export type CharacterClass = 'Warrior' | 'Ranger' | 'Rogue';
 
 export interface PlayerState {
   id: string;
@@ -37,7 +37,21 @@ export type RangerAnimation =
   | 'Run_Holding'
   | 'Walk';
 
-export type AnyAnimation = WarriorAnimation | RangerAnimation;
+export type RogueAnimation =
+  | 'Attacking_Idle'
+  | 'Dagger_Attack'
+  | 'Dagger_Attack2'
+  | 'Death'
+  | 'Idle'
+  | 'PickUp'
+  | 'Punch'
+  | 'RecieveHit'
+  | 'RecieveHit_2'
+  | 'Roll'
+  | 'Run'
+  | 'Walk';
+
+export type AnyAnimation = WarriorAnimation | RangerAnimation | RogueAnimation;
 
 // AnimSettings тоже можно вынести сюда, если они нужны в разных местах
 export type AnimSettings = { loop: boolean; speed: number; fade: number };

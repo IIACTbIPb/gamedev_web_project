@@ -2,7 +2,13 @@ import { Vector3, Camera, Vector2, Raycaster } from 'three';
 import { ECS } from './ecs'; // <-- Обновили импорт
 import { socket } from './socket';
 import type { Entity } from './ecs';
-import type { AnimSettings, BaseAnimation, RangerAnimation, WarriorAnimation } from '@game/shared';
+import type {
+  AnimSettings,
+  BaseAnimation,
+  RangerAnimation,
+  RogueAnimation,
+  WarriorAnimation,
+} from '@game/shared';
 
 const BASE_ANIMATIONS: Record<BaseAnimation, AnimSettings> = {
   Idle: { loop: true, speed: 1, fade: 0.2 },
@@ -16,11 +22,13 @@ export interface ClassConfig<T extends string> {
   // Теперь у нас две фазы атаки:
   onPrimaryAttackStart: (player: Entity) => void;
   onPrimaryAttackRelease?: (player: Entity, camera: Camera) => void;
+  onSkill1?: (player: Entity) => void;
 }
 
 export const CLASSES_CONFIG: {
   Warrior: ClassConfig<WarriorAnimation>;
   Ranger: ClassConfig<RangerAnimation>;
+  Rogue: ClassConfig<RogueAnimation>;
 } = {
   Warrior: {
     animations: {
@@ -163,6 +171,92 @@ export const CLASSES_CONFIG: {
         ECS.world.add(arrowData); // <-- Используем ECS.world
         socket.emit('shoot', arrowData);
       }
+    },
+  },
+  Rogue: {
+    animations: {
+      ...BASE_ANIMATIONS,
+      Dagger_Attack: { loop: false, speed: 1.5, fade: 0.05 },
+      Dagger_Attack2: { loop: false, speed: 1, fade: 0.05 },
+    },
+
+    onPrimaryAttackStart: (player) => {
+      player.currentAnimation = 'Dagger_Attack';
+      // === ДЕЛАЕМ АТАКУ БЫСТРОЙ ===
+      player.actionTimer = 0.4; // Блокируем новые атаки всего на 0.35 сек
+
+      setTimeout(() => {
+        if (!player.rigidBody || !player.threeObject || (player.hp !== undefined && player.hp <= 0))
+          return;
+
+        const playerPos = player.rigidBody.translation();
+        const playerRot = player.threeObject.quaternion;
+        const forward = new Vector3(0, 0, 1).applyQuaternion(playerRot).normalize();
+        const playerVec = new Vector3(playerPos.x, playerPos.y, playerPos.z);
+
+        const enemies = ECS.world
+          .with('rigidBody', 'id', 'hp')
+          .where((e) => e.id !== player.id && e.hp > 0);
+
+        for (const enemy of enemies) {
+          const enemyPos = enemy.rigidBody.translation();
+          const enemyVec = new Vector3(enemyPos.x, enemyPos.y, enemyPos.z);
+          const distance = playerVec.distanceTo(enemyVec);
+
+          // У кинжала радиус поражения чуть меньше, чем у меча (2.5 метра)
+          if (distance < 2.5) {
+            const dirToEnemy = new Vector3().subVectors(enemyVec, playerVec).normalize();
+            const angle = forward.angleTo(dirToEnemy);
+
+            if (angle < Math.PI / 3) {
+              socket.emit('meleeHit', {
+                targetId: enemy.id,
+                damage: 15, // Урон меньше
+                shooterId: player.id,
+              });
+            }
+          }
+        }
+      }, 150); // Задержка всего 150мс (очень быстрый удар)
+    },
+    onSkill1: (player) => {
+      player.currentAnimation = 'Dagger_Attack2';
+      player.actionTimer = 0.8; // Этот удар долгий и мощный
+
+      setTimeout(() => {
+        if (!player.rigidBody || !player.threeObject || (player.hp !== undefined && player.hp <= 0))
+          return;
+
+        const playerPos = player.rigidBody.translation();
+        const playerRot = player.threeObject.quaternion;
+        const forward = new Vector3(0, 0, 1).applyQuaternion(playerRot).normalize();
+        const playerVec = new Vector3(playerPos.x, playerPos.y, playerPos.z);
+
+        const enemies = ECS.world
+          .with('rigidBody', 'id', 'hp')
+          .where((e) => e.id !== player.id && e.hp > 0);
+
+        for (const enemy of enemies) {
+          const enemyPos = enemy.rigidBody.translation();
+          const enemyVec = new Vector3(enemyPos.x, enemyPos.y, enemyPos.z);
+          const distance = playerVec.distanceTo(enemyVec);
+
+          // Суперудар бьет чуть дальше (3 метра)
+          if (distance < 3.0) {
+            const dirToEnemy = new Vector3().subVectors(enemyVec, playerVec).normalize();
+            const angle = forward.angleTo(dirToEnemy);
+
+            // Конус поражения меньше (бьет точечно перед собой)
+            if (angle < Math.PI / 4) {
+              socket.emit('meleeHit', {
+                targetId: enemy.id,
+                damage: 55, // Огромный урон!
+                shooterId: player.id,
+              });
+            }
+          }
+        }
+      }, 350); // Задержка удара
     },
   },
 };

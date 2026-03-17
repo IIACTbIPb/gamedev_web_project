@@ -14,6 +14,8 @@ interface UIState {
   playersHp: Record<string, { hp: number; maxHp: number }>;
   setPlayerHp: (id: string, hp: number, maxHp: number) => void;
   removePlayerHp: (id: string) => void;
+  skill1Cooldown: number;
+  startSkill1Cooldown: (seconds: number) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -24,6 +26,21 @@ export const useUIStore = create<UIState>((set) => ({
   setClassType: (classType) => set({ classType }),
   isDead: false,
   killerId: null,
+  skill1Cooldown: 0,
+  startSkill1Cooldown: (seconds) => {
+    set({ skill1Cooldown: seconds });
+
+    // Запускаем счетчик, который будет каждую секунду уменьшать значение
+    const interval = setInterval(() => {
+      set((state) => {
+        if (state.skill1Cooldown <= 1) {
+          clearInterval(interval);
+          return { skill1Cooldown: 0 }; // Таймер вышел!
+        }
+        return { skill1Cooldown: state.skill1Cooldown - 1 };
+      });
+    }, 1000);
+  },
 
   playersHp: {},
   // Обновляем ХП конкретного игрока, не трогая остальных

@@ -1,0 +1,47 @@
+.bar {
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 15px;
+  z-index: 9999;
+}
+
+.skillBox {
+  width: 60px;
+  height: 60px;
+  background-color: rgba(0, 0, 0, 0.6);
+  border: 2px solid #555;
+  border-radius: 8px;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: white;
+  font-size: 24px;
+}
+
+.skillBoxHighlighted {
+  border: 2px solid #FF4500;
+}
+
+.skillBoxDefault {
+  border: 2px solid #aaa;
+}
+
+.hotkey {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  background-color: #FFD700;
+  color: black;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.hotkeyDefault {
+  background-color: #eee;
+}

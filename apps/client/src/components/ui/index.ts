@@ -4,3 +4,4 @@ export { HpBar } from './HpBar/HpBar';
 export { PlayerHUD } from './PlayerHUD/PlayerHUD';
 export { DeathScreen } from './DeathScreen/DeathScreen';
 export { SettingsMenu } from './SettingsMenu/SettingsMenu';
+export { SkillBar } from './SkillBar/SkillBar';

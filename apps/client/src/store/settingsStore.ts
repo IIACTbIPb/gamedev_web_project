@@ -7,6 +7,7 @@ export type KeyMap = {
   left: string[];
   right: string[];
   jump: string[];
+  skill1: string[];
 };
 
 const defaultKeybinds: KeyMap = {
@@ -15,6 +16,7 @@ const defaultKeybinds: KeyMap = {
   left: ['ArrowLeft', 'KeyA'],
   right: ['ArrowRight', 'KeyD'],
   jump: ['Space'],
+  skill1: ['KeyE'],
 };
 
 interface SettingsState {

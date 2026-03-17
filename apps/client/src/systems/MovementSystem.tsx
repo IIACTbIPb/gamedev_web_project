@@ -6,6 +6,7 @@ import { ECS } from '../ecs';
 import { socket } from '../socket';
 import { CLASSES_CONFIG } from '../classesConfig';
 import type { BaseAnimation } from '@game/shared';
+import { useUIStore } from '../store';
 
 const localPlayers = ECS.world
   .with('rigidBody', 'isMe', 'threeObject')
@@ -18,8 +19,10 @@ const upVector = new Vector3(0, 1, 0);
 const targetQuaternion = new Quaternion();
 const tempPos = new Vector3();
 
+export type Controls = 'forward' | 'backward' | 'left' | 'right' | 'jump' | 'skill1';
+
 export const MovementSystem = () => {
-  const [, get] = useKeyboardControls();
+  const [, get] = useKeyboardControls<Controls>();
   const { camera } = useThree();
 
   const lastPosition = useRef(new Vector3());
@@ -60,7 +63,7 @@ export const MovementSystem = () => {
   }, [camera]);
 
   useFrame((state, delta) => {
-    const { forward, backward, left, right, jump } = get();
+    const { forward, backward, left, right, jump, skill1 } = get();
 
     for (const entity of localPlayers) {
       if (!entity.isMe || !entity.rigidBody || !entity.threeObject) continue;
@@ -76,6 +79,18 @@ export const MovementSystem = () => {
       if (entity.actionTimer !== undefined && entity.actionTimer > 0) {
         entity.actionTimer -= delta;
         isActionLocked = true;
+      }
+
+      if (skill1 && !isActionLocked && entity.classType) {
+        const classLogic = CLASSES_CONFIG[entity.classType];
+
+        if (classLogic?.onSkill1 && useUIStore.getState().skill1Cooldown === 0) {
+          classLogic.onSkill1(entity);
+          isActionLocked = true;
+
+          // ЗАПУСКАЕМ КУЛДАУН (например, 5 секунд)
+          useUIStore.getState().startSkill1Cooldown(5);
+        }
       }
 
       const speed = isActionLocked ? 0 : 5;

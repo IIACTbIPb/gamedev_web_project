@@ -10,7 +10,14 @@ import styles from './App.module.css';
 import { socket } from './socket';
 import { ECS } from './ecs';
 import { ProjectileSystem, CameraFollowSystem, MovementSystem } from './systems';
-import { Crosshair, DeathScreen, MainMenu, PlayerHUD, SettingsMenu } from './components/ui';
+import {
+  Crosshair,
+  DeathScreen,
+  MainMenu,
+  PlayerHUD,
+  SettingsMenu,
+  SkillBar,
+} from './components/ui';
 import { useUIStore } from './store/uiStore';
 import { WarriorStatue } from './components/props';
 import { Projectiles, Ground } from './components/word';
@@ -116,11 +123,12 @@ function App() {
 
   const keyboardMap = useMemo(
     () => [
-      { name: 'forward', keys: keybinds.forward },
-      { name: 'backward', keys: keybinds.backward },
-      { name: 'left', keys: keybinds.left },
-      { name: 'right', keys: keybinds.right },
-      { name: 'jump', keys: keybinds.jump },
+      { name: 'forward', keys: keybinds.forward || ['ArrowUp', 'KeyW'] },
+      { name: 'backward', keys: keybinds.backward || ['ArrowDown', 'KeyS'] },
+      { name: 'left', keys: keybinds.left || ['ArrowLeft', 'KeyA'] },
+      { name: 'right', keys: keybinds.right || ['ArrowRight', 'KeyD'] },
+      { name: 'jump', keys: keybinds.jump || ['Space'] },
+      { name: 'skill1', keys: keybinds.skill1 || ['KeyE'] },
     ],
     [keybinds],
   );
@@ -141,6 +149,7 @@ function App() {
       {!isJoined && <MainMenu onSelectClass={handleJoin} />}
       <Crosshair />
       {isJoined && <PlayerHUD />}
+      <SkillBar />
       <DeathScreen />
       <SettingsMenu />
 
