@@ -6,9 +6,9 @@ import { ECS } from '../../ecs';
 
 // === КОНФИГУРАЦИЯ СЛЕДА ===
 const TOTAL_PARTICLES = 200;
-const SPAWN_INTERVAL = 0.016;
-const PARTICLE_LIFETIME = 0.6; // Чуть дольше, чтобы шлейф был длиннее
-const PARTICLE_SIZE = 0.35;
+const SPAWN_INTERVAL = 0.010;
+const PARTICLE_LIFETIME = 0.8; // Чуть дольше, чтобы шлейф был длиннее
+const PARTICLE_SIZE = 0.2;
 
 // Цветовая палитра Рейнджера (спектральный/магический бег)
 const TRAIL_COLORS = [
@@ -82,35 +82,40 @@ export const RangerSprintTrail: React.FC = () => {
         const rangers = ECS.world.where((e) => e.classType === 'Ranger');
 
         for (const player of rangers) {
-            // Базовая проверка на наличие физики
             if (!player.rigidBody) continue;
 
-            // === СИНХРОНИЗАЦИЯ: Определяем, активен ли бафф бега ===
-            // Логика баффа для СЕБЯ (по локальному таймеру)
             const isMeBuff = player.isMe && player.speedBuffTimer !== undefined && player.speedBuffTimer > 0;
-            // Логика баффа для ДРУГИХ (по флагу isSprinting, который прислал сервер)
             const isOtherBuff = !player.isMe && player.isSprinting === true;
-
             const isBuffActive = isMeBuff || isOtherBuff;
 
-            // Если баффа нет, переходим к следующему игроку
-            if (!isBuffActive) continue;
+            if (!isBuffActive) continue; // Если баффа нет, пропускаем
 
-            // Проверяем, что игрок действительно бежит (а не стоит с баффом)
-            const currentVelocity = player.rigidBody.linvel();
-            const isMoving = Math.abs(currentVelocity.x) > 1.0 || Math.abs(currentVelocity.z) > 1.0;
-
-            // Если пришло время спавна И игрок бежит с баффом - выстреливаем частицу!
-            if (shouldSpawnThisFrame && isMoving) {
-                // Берем абсолютные координаты из физики
+            // === ИЗМЕНЕНИЕ: УБРАЛИ ПРОВЕРКУ НА isMoving ===
+            // Теперь частицы спавнятся всегда, когда бафф активен!
+            if (shouldSpawnThisFrame) {
                 const pos = player.rigidBody.translation();
-                // Спавним чуть позади и снизу
-                const spawnPos = new THREE.Vector3(pos.x, pos.y + 0.2, pos.z);
 
-                // Выбираем случайный цвет
+                // Добавляем небольшой случайный разброс (radius ~0.4), 
+                // чтобы когда игрок стоит, частицы красиво "кипели" вокруг ног, а не в 1 пикселе
+                const randomOffsetX = (Math.random() - 0.5) * 0.8;
+                const randomOffsetZ = (Math.random() - 0.5) * 0.8;
+
+                const currentVelocity = player.rigidBody.linvel();
+                const isMoving = Math.abs(currentVelocity.x) > 1.0 || Math.abs(currentVelocity.z) > 1.0;
+
+                if (!isMoving && Math.random() > 0.2) {
+                    // Пропускаем спавн в этом кадре, делая ауру более редкой
+                    continue;
+                }
+
+                const spawnPos = new THREE.Vector3(
+                    pos.x + randomOffsetX,
+                    pos.y + 0.1,
+                    pos.z + randomOffsetZ
+                );
+
                 const randomColor = TRAIL_COLORS[Math.floor(Math.random() * TRAIL_COLORS.length)];
 
-                // Активируем частицу под этим игроком
                 particles[nextParticleIndex.current].activate(spawnPos, randomColor);
                 nextParticleIndex.current = (nextParticleIndex.current + 1) % TOTAL_PARTICLES;
             }

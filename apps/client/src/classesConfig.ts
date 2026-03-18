@@ -249,8 +249,22 @@ export const CLASSES_CONFIG: {
         id: 'skill1',
         name: 'Sprint',
         icon: '💨',
-        cooldown: 20,
+        cooldown: 15,
         onUse: (player) => {
+          player.currentAnimation = 'Idle_Attacking'
+          player.actionTimer = 0.5;
+
+          // === МАГИЯ ФИЗИКИ: ПОДБРАСЫВАЕМ ВВЕРХ ===
+          if (player.rigidBody) {
+            // Сила импульса (8 — это примерное значение, как у прыжка.
+            // Попробуй значения от 5 до 12, чтобы найти идеальный баланс)
+            const upwardImpulse = { x: 0, y: 8, z: 0 };
+
+            // Применяем импульс. Второй аргумент true — "wake up" тела, если оно спало.
+            player.rigidBody.applyImpulse(upwardImpulse, true);
+          }
+          // ===========================================
+
           player.speedBuffTimer = 10;
           player.speed = 13;
           // Опционально: можно запустить легкую анимацию Roll или просто оставить бег
