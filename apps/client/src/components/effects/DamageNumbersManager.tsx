@@ -13,19 +13,18 @@ export const DamageNumbersManager: React.FC = () => {
 	const textRefs = useRef(new Map<string, any>());
 
 	useEffect(() => {
-		// Создаем невидимую цифру урона, которая живет всего 0.1 секунды
+		// Генерируем уникальный ID на случай двойного рендера в Strict Mode
+		const warmupId = `_warmup_${Math.random().toString(36).substring(2, 9)}`;
+
 		ECS.world.add({
-			id: '_warmup_text',
-			position: { x: -999, y: -999, z: -999 }, // Прячем далеко под карту
+			id: warmupId,
+			position: { x: -999, y: -999, z: -999 },
 			damageText: {
 				value: 0,
-				life: 0.1, // Быстро исчезнет
+				life: 0.1,
 			}
 		});
-
-		// Нам не нужно удалять её вручную, useFrame это сделает сам.
-		// Three.js скомпилирует шейдер текста, пока она "живет".
-	}, []); // Выполняется один раз при монтировании
+	}, []);
 
 	useFrame((state, delta) => {
 		for (const entity of entities) {

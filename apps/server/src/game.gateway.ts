@@ -6,16 +6,17 @@ import {
   SubscribeMessage,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import type { 
-  CharacterClass, 
-  ClientToServerEvents, 
-  GameState, 
+import type {
+  CharacterClass,
+  ClientToServerEvents,
+  GameState,
   ServerToClientEvents,
   MovePayload,
   ProjectilePayload,
   ArrowHitPayload,
   MeleeHitPayload,
-  EffectPayload
+  EffectPayload,
+  JoinGamePayload
 } from '@game/shared';
 
 // Создаем удобный алиас для строго типизированного сокета клиента
@@ -26,7 +27,7 @@ type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server<ClientToServerEvents, ServerToClientEvents>;
-  
+
   // Игровой стейт в памяти сервера
   private players: GameState = {};
 
@@ -43,9 +44,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('joinGame')
-  handleJoinGame(client: TypedSocket, classType: CharacterClass) {
-    console.log(`Игрок ${client.id} выбрал класс: ${classType}`);
-    
+  handleJoinGame(client: TypedSocket, data: JoinGamePayload) {
+    console.log(`Игрок ${client.id} выбрал класс: ${data.classType} и никнейм: ${data.name}`);
+
     this.players[client.id] = {
       id: client.id,
       position: {
@@ -53,9 +54,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         y: 2,
         z: (Math.random() - 0.5) * 5,
       },
-      classType: classType,
+      classType: data.classType,
       hp: 100,
-      maxHp: 100
+      maxHp: 100,
+      name: data.name
     };
 
     this.server.emit('gameState', this.players);
@@ -85,14 +87,14 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     if (data.targetId && this.players[data.targetId]) {
       const target = this.players[data.targetId];
-      
+
       if (target.hp <= 0) return;
 
-      target.hp -= (data.damage || 25); 
+      target.hp -= (data.damage || 25);
 
       if (target.hp <= 0) {
         target.hp = 0;
-        
+
         this.server.emit('playerDied', {
           victimId: target.id,
           killerId: data.shooterId || null
@@ -113,9 +115,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (player) {
       player.hp = player.maxHp;
       player.position = { x: (Math.random() - 0.5) * 10, y: 2, z: (Math.random() - 0.5) * 10 };
-      
+
       this.server.emit('gameState', this.players);
-      
+
       this.server.emit('playerHpChanged', {
         id: player.id,
         hp: player.hp,
@@ -133,7 +135,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   handleMeleeHit(client: TypedSocket, data: MeleeHitPayload) {
     if (data.targetId && this.players[data.targetId]) {
       const target = this.players[data.targetId];
-      
+
       if (target.hp <= 0) return;
 
       target.hp -= data.damage;

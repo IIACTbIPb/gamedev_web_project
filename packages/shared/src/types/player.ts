@@ -6,6 +6,7 @@ export interface PlayerState {
   classType: CharacterClass;
   hp: number;
   maxHp: number;
+  name: string;
 }
 
 export type GameState = Record<string, PlayerState>;

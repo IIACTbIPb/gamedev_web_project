@@ -10,6 +10,7 @@ export type Entity = {
   isMe?: boolean;
   position?: { x: number; y: number; z: number };
   rotation?: { x: number; y: number; z: number; w: number };
+  name?: string;
 
   // Добавим новый компонент чисто для клиента
   rotationSpeed?: number;

@@ -14,6 +14,7 @@ import {
   Crosshair,
   DeathScreen,
   MainMenu,
+  NameplatesManager,
   PlayerHUD,
   SettingsMenu,
   SkillBar,
@@ -187,8 +188,8 @@ function App() {
   const ambientLightIntensity = isNight ? 0.15 : 0.8;
   const directionalLightIntensity = isNight ? 1.5 : 2.5;
 
-  const handleJoin = (selectedClass: CharacterClass) => {
-    socket.emit('joinGame', selectedClass);
+  const handleJoin = (selectedClass: CharacterClass, playerName: string) => {
+    socket.emit('joinGame', { classType: selectedClass, name: playerName });
     useUIStore.getState().setClassType(selectedClass);
     setIsJoined(true);
   };
@@ -203,7 +204,7 @@ function App() {
       <SettingsMenu />
 
       <KeyboardControls map={keyboardMap}>
-        <Canvas camera={{ position: [0, 8, 15] }}>
+        <Canvas camera={{ position: [0, 8, 15] }} dpr={[1, 2]}>
           <color attach="background" args={[bgColor]} />
           {isNight && <Stars radius={100} depth={50} count={5000} factor={4} fade />}
 
@@ -244,6 +245,7 @@ function App() {
                 classType={player.classType}
                 hp={player.hp}
                 maxHp={player.maxHp}
+                name={player.name}
               />
             ))}
           </Physics>
@@ -256,6 +258,7 @@ function App() {
               RIGHT: THREE.MOUSE.ROTATE,
             }}
           />
+          <NameplatesManager />
         </Canvas>
       </KeyboardControls>
     </div>

@@ -61,11 +61,16 @@ export interface PlayerRespawnedPayload {
 	position: { x: number; y: number; z: number };
 }
 
+export interface JoinGamePayload {
+	classType: CharacterClass;
+	name: string;
+}
+
 // === ИНТЕРФЕЙСЫ SOCKET.IO ===
 
 // События, которые КЛИЕНТ ОТПРАВЛЯЕТ, а СЕРВЕР СЛУШАЕТ
 export interface ClientToServerEvents {
-	joinGame: (classType: CharacterClass) => void;
+	joinGame: (data: JoinGamePayload) => void;
 	move: (data: MovePayload) => void;
 	shoot: (data: ProjectilePayload) => void;
 	spawnEffect: (data: EffectPayload) => void;

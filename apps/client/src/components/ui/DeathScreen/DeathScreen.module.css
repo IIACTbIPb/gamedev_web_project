@@ -1,53 +1,121 @@
+/* Кроваво-темный фон с размытием игры на заднем плане */
 .overlay {
   position: absolute;
   top: 0;
   left: 0;
   width: 100vw;
   height: 100vh;
-  background-color: rgba(20, 0, 0, 0.85); /* Кроваво-черное затемнение */
+  background: radial-gradient(circle, rgba(40, 0, 0, 0.7) 0%, rgba(10, 0, 0, 0.95) 100%);
+  backdrop-filter: blur(8px);
   display: flex;
-  flex-direction: column;
   justify-content: center;
   align-items: center;
   z-index: 9999;
-  color: white;
-  font-family: sans-serif;
-  pointer-events: auto; /* Разрешаем кликать на кнопку */
+  animation: fadeIn 2s ease-out forwards;
+  /* Медленное появление */
+  opacity: 0;
 }
 
+.content {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+}
+
+/* Огромный зловещий текст */
 .title {
-  font-size: 5rem;
+  font-family: 'Russo One', sans-serif;
+  /* Или любой другой жирный шрифт */
+  font-size: 6rem;
+  color: #aa0000;
   margin: 0;
-  color: #e74c3c;
+  letter-spacing: 15px;
   text-transform: uppercase;
-  text-shadow: 2px 2px 10px rgba(0, 0, 0, 0.5);
+  text-shadow: 0 0 30px rgba(255, 0, 0, 0.5), 2px 2px 0px #000;
+  animation: scaleUp 3s cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
 }
 
 .subtitle {
   font-size: 1.5rem;
-  margin-top: 10px;
-  color: #ccc;
+  color: #aaaaaa;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin: 0;
 }
 
 .killerName {
-  color: #fff;
+  color: #ffaa00;
+  /* Золотистое имя убийцы */
   font-weight: bold;
+  font-size: 1.8rem;
+  text-shadow: 0 0 10px rgba(255, 170, 0, 0.5);
 }
 
+/* Кнопка возрождения (похожа на кнопку из MainMenu) */
 .respawnButton {
-  margin-top: 40px;
+  margin-top: 2rem;
   padding: 15px 40px;
   font-size: 1.2rem;
-  font-weight: bold;
-  background-color: #e74c3c;
-  color: white;
-  border: none;
+  font-family: 'Russo One', sans-serif;
+  color: #fff;
+  background: transparent;
+  border: 2px solid #555;
   border-radius: 5px;
   cursor: pointer;
-  transition: background-color 0.2s ease;
   text-transform: uppercase;
+  letter-spacing: 3px;
+  transition: all 0.3s ease;
+  animation: pulseLight 2s infinite;
 }
 
 .respawnButton:hover {
-  background-color: #c0392b;
+  border-color: #aa0000;
+  background: rgba(170, 0, 0, 0.2);
+  color: #ff5555;
+  box-shadow: 0 0 20px rgba(170, 0, 0, 0.5);
+  transform: scale(1.05);
+  animation: none;
+}
+
+/* --- АНИМАЦИИ --- */
+
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleUp {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes pulseLight {
+  0% {
+    border-color: #555;
+    box-shadow: 0 0 0 rgba(255, 255, 255, 0);
+  }
+
+  50% {
+    border-color: #888;
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+  }
+
+  100% {
+    border-color: #555;
+    box-shadow: 0 0 0 rgba(255, 255, 255, 0);
+  }
 }

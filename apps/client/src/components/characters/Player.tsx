@@ -4,7 +4,6 @@ import type { Group } from 'three';
 import { ECS } from '../../ecs';
 import { Warrior } from './Warrior';
 import type { CharacterClass } from '@game/shared';
-import { HpBar } from '../ui'; // Убедись, что путь импорта верный
 import { useUIStore } from '../../store/uiStore';
 import { Ranger } from './Ranger';
 import { Rogue } from './Rogue';
@@ -16,6 +15,7 @@ interface PlayerProps {
   classType?: CharacterClass;
   hp: number;
   maxHp: number;
+  name?: string;
 }
 
 type ModelProps = Omit<JSX.IntrinsicElements['group'], 'id'> & {
@@ -28,7 +28,7 @@ const CLASS_MODELS: Record<CharacterClass, React.ComponentType<ModelProps>> = {
   Rogue: Rogue,
 };
 
-export const Player = ({ id, position, isMe, classType = 'Warrior', hp, maxHp }: PlayerProps) => {
+export const Player = ({ id, position, isMe, classType = 'Warrior', hp, maxHp, name }: PlayerProps) => {
   const [threeObject, setThreeObject] = useState<Group | null>(null);
   const [rigidBody, setRigidBody] = useState<RapierRigidBody | null>(null);
 
@@ -51,6 +51,7 @@ export const Player = ({ id, position, isMe, classType = 'Warrior', hp, maxHp }:
       <ECS.Component name="classType" data={classType} />
       <ECS.Component name="hp" data={hp} />
       <ECS.Component name="maxHp" data={maxHp} />
+      {name && <ECS.Component name="name" data={name} />}
 
       {/* Добавляем ссылки на Three.js и Rapier только после их инициализации */}
       {threeObject && <ECS.Component name="threeObject" data={threeObject} />}
@@ -67,7 +68,6 @@ export const Player = ({ id, position, isMe, classType = 'Warrior', hp, maxHp }:
 
         <group ref={setThreeObject}>
           {/* Показываем 3D полоску ХП только над чужими клонами (ведь свой ХП мы видим в HUD) */}
-          {!isMe && <HpBar playerId={id} />}
           <CharacterModel id={id} scale={1} />
         </group>
       </RigidBody>
