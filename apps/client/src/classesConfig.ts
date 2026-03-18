@@ -242,6 +242,20 @@ export const CLASSES_CONFIG: {
         socket.emit('shoot', arrowData);
       }
     },
+    skills: [
+      {
+        id: 'skill1',
+        name: 'Sprint',
+        icon: '💨',
+        cooldown: 20,
+        onUse: (player) => {
+          player.speedBuffTimer = 10;
+          player.speed = 13;
+          // Опционально: можно запустить легкую анимацию Roll или просто оставить бег
+          // При желании здесь же можно заспавнить эффект пыли из-под ног!
+        }
+      }
+    ]
   },
   Rogue: {
     animations: {

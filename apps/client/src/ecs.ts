@@ -10,7 +10,7 @@ export type Entity = {
   isMe?: boolean;
   position?: { x: number; y: number; z: number };
   rotation?: { x: number; y: number; z: number; w: number };
-  
+
   // Добавим новый компонент чисто для клиента
   rotationSpeed?: number;
 
@@ -24,7 +24,7 @@ export type Entity = {
   isProjectile?: boolean;
   velocity?: { x: number; y: number; z: number };
   lifeTime?: number; // Сколько секунд живет стрела
-  
+
   // === ЭФФЕКТЫ ===
   isEffect?: boolean;
   effectType?: 'DaggerHit' | string;
@@ -35,6 +35,10 @@ export type Entity = {
 
   hp?: number;
   maxHp?: number;
+
+  speedBuffTimer?: number;
+  speed?: number;
+  isSprinting?: boolean;
 
   // === НОВОЕ СВОЙСТВО ДЛЯ КЛАССОВ ===
   classType?: CharacterClass;

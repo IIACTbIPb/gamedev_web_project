@@ -30,6 +30,7 @@ export const MovementSystem = () => {
   const lastAnimation = useRef<string>('Idle');
   const lastAiming = useRef<boolean>(false);
   const lastInvisible = useRef<boolean>(false);
+  const lastSprinting = useRef<boolean>(false)
   const groundedFrames = useRef(0);
 
   useEffect(() => {
@@ -83,6 +84,22 @@ export const MovementSystem = () => {
         isActionLocked = true;
       }
 
+      let baseSpeed = 5; // Базовая скорость всех персонажей
+
+      if (entity.speedBuffTimer !== undefined && entity.speedBuffTimer > 0) {
+        // Если таймер работает, отнимаем время
+        entity.speedBuffTimer -= delta;
+
+        // Если в сущности задана кастомная скорость, используем её
+        if (entity.speed) {
+          baseSpeed = entity.speed;
+        }
+      } else {
+        // Если таймер закончился (или его не было), возвращаем скорость в норму
+        entity.speedBuffTimer = 0;
+        entity.speed = 5;
+      }
+
       if (!isActionLocked && entity.classType) {
         const classLogic = CLASSES_CONFIG[entity.classType];
 
@@ -104,7 +121,7 @@ export const MovementSystem = () => {
         }
       }
 
-      const speed = isActionLocked ? 0 : 5;
+      const speed = isActionLocked ? 0 : baseSpeed;
 
       if (Math.abs(currentVelocity.y) < 0.05) {
         groundedFrames.current += 1;
@@ -163,6 +180,10 @@ export const MovementSystem = () => {
       const currentAnim = entity.currentAnimation || 'Idle';
       const currentAiming = !!entity.isAiming;
       const currentInvisible = !!entity.isInvisible;
+      const currentSprinting = entity.speedBuffTimer !== undefined && entity.speedBuffTimer > 0;
+
+
+
 
       tempPos.set(currentPos.x, currentPos.y, currentPos.z);
 
@@ -171,14 +192,16 @@ export const MovementSystem = () => {
       const animChanged = currentAnim !== lastAnimation.current;
       const aimingChanged = currentAiming !== lastAiming.current;
       const invisibleChanged = currentInvisible !== lastInvisible.current;
+      const sprintingChanged = currentSprinting !== lastSprinting.current;
 
-      if (posChanged || rotChanged || animChanged || aimingChanged || invisibleChanged) {
+      if (posChanged || rotChanged || animChanged || aimingChanged || invisibleChanged || sprintingChanged) {
         socket.emit('move', {
           position: currentPos,
           rotation: [currentRot.x, currentRot.y, currentRot.z, currentRot.w],
           animation: currentAnim,
           isAiming: currentAiming,
           isInvisible: currentInvisible,
+          isSprinting: currentSprinting,
         });
 
         lastPosition.current.copy(tempPos);
@@ -186,6 +209,7 @@ export const MovementSystem = () => {
         lastAnimation.current = currentAnim;
         lastAiming.current = currentAiming;
         lastInvisible.current = currentInvisible;
+        lastSprinting.current = currentSprinting;
       }
     }
   });

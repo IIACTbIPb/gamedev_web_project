@@ -46,7 +46,7 @@ function App() {
       ECS.world.add(effectData);
     });
 
-    socket.on('playerMoved', ({ id, position, rotation, animation, isAiming, isInvisible }) => {
+    socket.on('playerMoved', ({ id, position, rotation, animation, isAiming, isInvisible, isSprinting }) => {
       const entity = ECS.world.where((e) => e.id === id).first;
 
       if (entity && entity.rigidBody && !entity.isMe) {
@@ -63,6 +63,9 @@ function App() {
         }
         if (isInvisible !== undefined) {
           entity.isInvisible = isInvisible;
+        }
+        if (isSprinting !== undefined) {
+          entity.isSprinting = isSprinting;
         }
       }
     });
@@ -210,7 +213,6 @@ function App() {
               />
             ))}
           </Physics>
-
           <OrbitControls
             makeDefault
             enablePan={false}

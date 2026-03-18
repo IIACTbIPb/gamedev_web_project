@@ -7,6 +7,7 @@ export interface MovePayload {
 	animation: AnyAnimation;
 	isAiming: boolean;
 	isInvisible?: boolean;
+	isSprinting?: boolean;
 }
 
 export interface PlayerMovedPayload extends MovePayload {

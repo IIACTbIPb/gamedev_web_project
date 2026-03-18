@@ -2,6 +2,7 @@ import { useEntities } from 'miniplex-react';
 import { ECS } from '../../ecs';
 import { DaggerHitEffect } from './DaggerHitEffect';
 import { WarriorCleaveEffect } from './WarriorCleaveEffect';
+import { RangerSprintTrail } from './RangerSprintTrail';
 
 export const Effects = () => {
   const { entities } = useEntities(ECS.world.with('isEffect', 'effectType', 'position'));
@@ -35,6 +36,7 @@ export const Effects = () => {
         }
         return null;
       })}
+      <RangerSprintTrail />
     </>
   );
 };
