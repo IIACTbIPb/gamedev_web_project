@@ -42,6 +42,11 @@ export type Entity = {
 
   // === НОВОЕ СВОЙСТВО ДЛЯ КЛАССОВ ===
   classType?: CharacterClass;
+
+  damageText?: {
+    value: number;
+    life: number;
+  };
 };
 
 // Создаем и экспортируем наш ECS-мир

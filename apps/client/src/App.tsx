@@ -86,18 +86,45 @@ function App() {
 
     socket.on('playerHpChanged', ({ id, hp, maxHp }) => {
       const entity = ECS.world.where((e) => e.id === id).first;
+
       if (entity) {
-        // Прямое обновление ECS (React об этом не знает, и это хорошо для оптимизации)
+        const oldHp = entity.hp !== undefined ? entity.hp : maxHp;
+        const damageAmount = oldHp - hp;
+
         ECS.world.update(entity, { hp, maxHp });
 
-        if (entity && entity.hp !== undefined && entity.hp > 0) {
-
+        // === 1. АНИМАЦИЯ (Только если игрок ОСТАЛСЯ ЖИВ) ===
+        if (entity.hp !== undefined && entity.hp > 0) {
           const hitAnim = Math.random() > 0.5 ? 'RecieveHit' : 'RecieveHit_2';
           entity.currentAnimation = hitAnim;
           entity.actionTimer = 0.3;
         }
 
-        // Дергаем интерфейс только если это мы
+        // === 2. ЦИФРЫ УРОНА (Всегда, даже если удар был смертельным) ===
+        if (damageAmount > 0 && entity.rigidBody && !entity.isMe) {
+          const pos = entity.rigidBody.translation();
+
+          const randomOffset = {
+            x: (Math.random() - 0.5) * 1.5,
+            y: 2.5 + Math.random() * 0.5,
+            z: (Math.random() - 0.5) * 1.0,
+          };
+
+          ECS.world.add({
+            id: Math.random().toString(36).substring(2, 9),
+            position: {
+              x: pos.x + randomOffset.x,
+              y: pos.y + randomOffset.y,
+              z: pos.z + randomOffset.z,
+            },
+            damageText: {
+              value: damageAmount,
+              life: 1.0,
+            }
+          });
+        }
+
+        // === 3. Обновляем UI ===
         if (entity.isMe) {
           useUIStore.getState().setHp(hp, maxHp);
         } else {
