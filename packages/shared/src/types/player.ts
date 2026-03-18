@@ -10,7 +10,7 @@ export interface PlayerState {
 
 export type GameState = Record<string, PlayerState>;
 
-export type BaseAnimation = 'Idle' | 'Run' | 'Roll' | 'Death';
+export type BaseAnimation = 'Idle' | 'Run' | 'Roll' | 'Death' | 'RecieveHit' | 'RecieveHit_2';
 
 export type WarriorAnimation =
   | BaseAnimation

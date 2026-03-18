@@ -90,6 +90,13 @@ function App() {
         // Прямое обновление ECS (React об этом не знает, и это хорошо для оптимизации)
         ECS.world.update(entity, { hp, maxHp });
 
+        if (entity && entity.hp !== undefined && entity.hp > 0) {
+
+          const hitAnim = Math.random() > 0.5 ? 'RecieveHit' : 'RecieveHit_2';
+          entity.currentAnimation = hitAnim;
+          entity.actionTimer = 0.3;
+        }
+
         // Дергаем интерфейс только если это мы
         if (entity.isMe) {
           useUIStore.getState().setHp(hp, maxHp);
