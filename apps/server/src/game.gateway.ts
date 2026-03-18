@@ -14,7 +14,8 @@ import type {
   MovePayload,
   ProjectilePayload,
   ArrowHitPayload,
-  MeleeHitPayload
+  MeleeHitPayload,
+  EffectPayload
 } from '@game/shared';
 
 // Создаем удобный алиас для строго типизированного сокета клиента
@@ -71,6 +72,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('shoot')
   handleShoot(client: TypedSocket, arrowData: ProjectilePayload) {
     client.broadcast.emit('playerShot', arrowData);
+  }
+
+  @SubscribeMessage('spawnEffect')
+  handleSpawnEffect(client: TypedSocket, effectData: EffectPayload) {
+    client.broadcast.emit('effectSpawned', effectData);
   }
 
   @SubscribeMessage('arrowHit')

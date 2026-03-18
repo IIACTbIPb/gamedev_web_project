@@ -14,8 +14,9 @@ interface UIState {
   playersHp: Record<string, { hp: number; maxHp: number }>;
   setPlayerHp: (id: string, hp: number, maxHp: number) => void;
   removePlayerHp: (id: string) => void;
-  skill1Cooldown: number;
-  startSkill1Cooldown: (seconds: number) => void;
+  
+  cooldowns: Record<string, number>;
+  startCooldown: (skillId: string, seconds: number) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -26,18 +27,23 @@ export const useUIStore = create<UIState>((set) => ({
   setClassType: (classType) => set({ classType }),
   isDead: false,
   killerId: null,
-  skill1Cooldown: 0,
-  startSkill1Cooldown: (seconds) => {
-    set({ skill1Cooldown: seconds });
+  
+  cooldowns: {},
+  startCooldown: (skillId, seconds) => {
+    set((state) => ({
+      cooldowns: { ...state.cooldowns, [skillId]: seconds },
+    }));
 
-    // Запускаем счетчик, который будет каждую секунду уменьшать значение
     const interval = setInterval(() => {
       set((state) => {
-        if (state.skill1Cooldown <= 1) {
+        const current = state.cooldowns[skillId];
+        if (current === undefined || current <= 1) {
           clearInterval(interval);
-          return { skill1Cooldown: 0 }; // Таймер вышел!
+          const newCooldowns = { ...state.cooldowns };
+          delete newCooldowns[skillId];
+          return { cooldowns: newCooldowns }; // Таймер вышел!
         }
-        return { skill1Cooldown: state.skill1Cooldown - 1 };
+        return { cooldowns: { ...state.cooldowns, [skillId]: current - 1 } };
       });
     }, 1000);
   },

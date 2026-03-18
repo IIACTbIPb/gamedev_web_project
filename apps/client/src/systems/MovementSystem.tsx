@@ -19,7 +19,7 @@ const upVector = new Vector3(0, 1, 0);
 const targetQuaternion = new Quaternion();
 const tempPos = new Vector3();
 
-export type Controls = 'forward' | 'backward' | 'left' | 'right' | 'jump' | 'skill1';
+export type Controls = 'forward' | 'backward' | 'left' | 'right' | 'jump' | 'skill1' | 'skill2';
 
 export const MovementSystem = () => {
   const [, get] = useKeyboardControls<Controls>();
@@ -29,6 +29,7 @@ export const MovementSystem = () => {
   const lastRotation = useRef(new Quaternion());
   const lastAnimation = useRef<string>('Idle');
   const lastAiming = useRef<boolean>(false);
+  const lastInvisible = useRef<boolean>(false);
   const groundedFrames = useRef(0);
 
   useEffect(() => {
@@ -63,7 +64,8 @@ export const MovementSystem = () => {
   }, [camera]);
 
   useFrame((state, delta) => {
-    const { forward, backward, left, right, jump, skill1 } = get();
+    const keys = get();
+    const { forward, backward, left, right, jump } = keys;
 
     for (const entity of localPlayers) {
       if (!entity.isMe || !entity.rigidBody || !entity.threeObject) continue;
@@ -81,15 +83,24 @@ export const MovementSystem = () => {
         isActionLocked = true;
       }
 
-      if (skill1 && !isActionLocked && entity.classType) {
+      if (!isActionLocked && entity.classType) {
         const classLogic = CLASSES_CONFIG[entity.classType];
 
-        if (classLogic?.onSkill1 && useUIStore.getState().skill1Cooldown === 0) {
-          classLogic.onSkill1(entity);
-          isActionLocked = true;
+        if (classLogic?.skills) {
+          for (let i = 0; i < classLogic.skills.length; i++) {
+            const skill = classLogic.skills[i];
+            const keyName = skill.id as keyof typeof keys; // skill1, skill2 etc
 
-          // ЗАПУСКАЕМ КУЛДАУН (например, 5 секунд)
-          useUIStore.getState().startSkill1Cooldown(5);
+            if (keys[keyName]) {
+              // Check cooldown
+              if (!useUIStore.getState().cooldowns[skill.id]) {
+                skill.onUse(entity);
+                isActionLocked = true;
+                useUIStore.getState().startCooldown(skill.id, skill.cooldown);
+                break; // Execute only one skill per frame
+              }
+            }
+          }
         }
       }
 
@@ -151,6 +162,7 @@ export const MovementSystem = () => {
       const currentRot = entity.threeObject.quaternion;
       const currentAnim = entity.currentAnimation || 'Idle';
       const currentAiming = !!entity.isAiming;
+      const currentInvisible = !!entity.isInvisible;
 
       tempPos.set(currentPos.x, currentPos.y, currentPos.z);
 
@@ -158,19 +170,22 @@ export const MovementSystem = () => {
       const rotChanged = lastRotation.current.angleTo(currentRot) > 0.01;
       const animChanged = currentAnim !== lastAnimation.current;
       const aimingChanged = currentAiming !== lastAiming.current;
+      const invisibleChanged = currentInvisible !== lastInvisible.current;
 
-      if (posChanged || rotChanged || animChanged || aimingChanged) {
+      if (posChanged || rotChanged || animChanged || aimingChanged || invisibleChanged) {
         socket.emit('move', {
           position: currentPos,
           rotation: [currentRot.x, currentRot.y, currentRot.z, currentRot.w],
           animation: currentAnim,
           isAiming: currentAiming,
+          isInvisible: currentInvisible,
         });
 
         lastPosition.current.copy(tempPos);
         lastRotation.current.copy(currentRot);
         lastAnimation.current = currentAnim;
         lastAiming.current = currentAiming;
+        lastInvisible.current = currentInvisible;
       }
     }
   });

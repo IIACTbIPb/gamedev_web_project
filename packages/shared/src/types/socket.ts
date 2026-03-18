@@ -6,6 +6,7 @@ export interface MovePayload {
 	rotation: [number, number, number, number];
 	animation: AnyAnimation;
 	isAiming: boolean;
+	isInvisible?: boolean;
 }
 
 export interface PlayerMovedPayload extends MovePayload {
@@ -19,6 +20,14 @@ export interface ProjectilePayload {
 	position: { x: number; y: number; z: number };
 	velocity: { x: number; y: number; z: number };
 	lifeTime: number;
+}
+
+export interface EffectPayload {
+	id: string;
+	isEffect: boolean;
+	effectType: string;
+	position: { x: number; y: number; z: number };
+	rotation?: { x: number; y: number; z: number; w: number };
 }
 
 export interface ArrowHitPayload {
@@ -58,6 +67,7 @@ export interface ClientToServerEvents {
 	joinGame: (classType: CharacterClass) => void;
 	move: (data: MovePayload) => void;
 	shoot: (data: ProjectilePayload) => void;
+	spawnEffect: (data: EffectPayload) => void;
 	arrowHit: (data: ArrowHitPayload) => void;
 	meleeHit: (data: MeleeHitPayload) => void;
 	respawn: () => void;
@@ -68,6 +78,7 @@ export interface ServerToClientEvents {
 	gameState: (state: GameState) => void;
 	playerMoved: (data: PlayerMovedPayload) => void;
 	playerShot: (data: ProjectilePayload) => void;
+	effectSpawned: (data: EffectPayload) => void;
 	arrowHit: (data: ArrowHitPayload) => void;
 	playerHpChanged: (data: HpChangedPayload) => void;
 	playerDied: (data: PlayerDiedPayload) => void;

@@ -23,6 +23,8 @@ import { WarriorStatue } from './components/props';
 import { Projectiles, Ground } from './components/word';
 import { PathfinderNPC } from './components/npcs';
 import { useSettingsStore } from './store';
+import { Effects } from './components/effects';
+
 
 function App() {
   const [isJoined, setIsJoined] = useState(false);
@@ -39,7 +41,12 @@ function App() {
       ECS.world.add(arrowData);
     });
 
-    socket.on('playerMoved', ({ id, position, rotation, animation, isAiming }) => {
+    socket.on('effectSpawned', (effectData) => {
+      // Когда кто-то спавнит эффект — добавляем его в ECS для рендера
+      ECS.world.add(effectData);
+    });
+
+    socket.on('playerMoved', ({ id, position, rotation, animation, isAiming, isInvisible }) => {
       const entity = ECS.world.where((e) => e.id === id).first;
 
       if (entity && entity.rigidBody && !entity.isMe) {
@@ -53,6 +60,9 @@ function App() {
         }
         if (isAiming !== undefined) {
           entity.isAiming = isAiming;
+        }
+        if (isInvisible !== undefined) {
+          entity.isInvisible = isInvisible;
         }
       }
     });
@@ -114,6 +124,7 @@ function App() {
       socket.off('gameState');
       socket.off('playerMoved');
       socket.off('playerShot');
+      socket.off('effectSpawned');
       socket.off('arrowHit');
       socket.off('playerHpChanged');
       socket.off('playerDied');
@@ -129,6 +140,7 @@ function App() {
       { name: 'right', keys: keybinds.right || ['ArrowRight', 'KeyD'] },
       { name: 'jump', keys: keybinds.jump || ['Space'] },
       { name: 'skill1', keys: keybinds.skill1 || ['KeyE'] },
+      { name: 'skill2', keys: keybinds.skill2 || ['KeyR'] },
     ],
     [keybinds],
   );
@@ -149,7 +161,7 @@ function App() {
       {!isJoined && <MainMenu onSelectClass={handleJoin} />}
       <Crosshair />
       {isJoined && <PlayerHUD />}
-      <SkillBar />
+      {isJoined && <SkillBar />}
       <DeathScreen />
       <SettingsMenu />
 
@@ -184,6 +196,7 @@ function App() {
             <CameraFollowSystem />
             <ProjectileSystem />
             <Projectiles />
+            <Effects />
             {/* Рендерим игроков */}
             {Object.values(players).map((player) => (
               <Player

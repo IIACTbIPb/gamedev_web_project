@@ -17,12 +17,20 @@ const BASE_ANIMATIONS: Record<BaseAnimation, AnimSettings> = {
   Death: { loop: false, speed: 1, fade: 0.2 },
 };
 
+export interface SkillConfig {
+  id: string; // 'skill1', 'skill2', 'skill3'
+  name: string; // Название для UI
+  icon: string; // Иконка для UI
+  cooldown: number; // В секундах
+  onUse: (player: Entity) => void;
+}
+
 export interface ClassConfig<T extends string> {
   animations: Partial<Record<T, AnimSettings>> & Record<BaseAnimation, AnimSettings>;
   // Теперь у нас две фазы атаки:
   onPrimaryAttackStart: (player: Entity) => void;
   onPrimaryAttackRelease?: (player: Entity, camera: Camera) => void;
-  onSkill1?: (player: Entity) => void;
+  skills?: SkillConfig[];
 }
 
 export const CLASSES_CONFIG: {
@@ -34,6 +42,7 @@ export const CLASSES_CONFIG: {
     animations: {
       ...BASE_ANIMATIONS,
       Sword_Attack: { loop: false, speed: 1, fade: 0.05 },
+      Sword_Attack2: { loop: false, speed: 0.9, fade: 0.05 },
     },
     onPrimaryAttackStart: (player) => {
       player.currentAnimation = 'Sword_Attack';
@@ -87,6 +96,67 @@ export const CLASSES_CONFIG: {
         }
       }, 300); // 300 мс задержка
     },
+    skills: [
+      {
+        id: 'skill1',
+        name: 'Heavy Cleave',
+        icon: '⚔️', // Эмодзи-заглушка, заменишь потом в SkillBar
+        cooldown: 2, // 8 секунд перезарядки
+        onUse: (player) => {
+          player.currentAnimation = 'Sword_Attack2';
+          player.actionTimer = 1.0; // Игрок замирает на 1 секунду!
+
+          // Удар происходит чуть позже (на 400мс), так как замах тяжелый
+          setTimeout(() => {
+            if (!player.rigidBody || !player.threeObject || (player.hp !== undefined && player.hp <= 0))
+              return;
+
+            const playerPos = player.rigidBody.translation();
+            const playerRot = player.threeObject.quaternion;
+            const forward = new Vector3(0, 0, 1).applyQuaternion(playerRot).normalize();
+            const playerVec = new Vector3(playerPos.x, playerPos.y, playerPos.z);
+
+            const effectData = {
+              id: Math.random().toString(36).substring(2, 9),
+              isEffect: true,
+              effectType: 'WarriorCleave',
+              // Спавним чуть впереди игрока и на уровне груди
+              position: { x: playerPos.x, y: playerPos.y + 1.2, z: playerPos.z },
+              // Передаем вращение игрока, чтобы волна полетела туда, куда он смотрит
+              rotation: { x: playerRot.x, y: playerRot.y, z: playerRot.z, w: playerRot.w },
+            };
+            ECS.world.add(effectData); // Себе
+            socket.emit('spawnEffect', effectData); // Другим
+
+            const enemies = ECS.world
+              .with('rigidBody', 'id', 'hp')
+              .where((e) => e.id !== player.id && e.hp > 0);
+
+            for (const enemy of enemies) {
+              const enemyPos = enemy.rigidBody.translation();
+              const enemyVec = new Vector3(enemyPos.x, enemyPos.y, enemyPos.z);
+
+              const distance = playerVec.distanceTo(enemyVec);
+
+              if (distance < 5) {
+                const dirToEnemy = new Vector3().subVectors(enemyVec, playerVec).normalize();
+                const angle = forward.angleTo(dirToEnemy);
+
+                // Широкий размах! Угол Math.PI / 2 означает 180 градусов перед воином
+                // Он заденет всех врагов, стоящих спереди и по бокам
+                if (angle < Math.PI / 2) {
+                  socket.emit('meleeHit', {
+                    targetId: enemy.id,
+                    damage: 60, // Сносит больше половины ХП за раз
+                    shooterId: player.id,
+                  });
+                }
+              }
+            }
+          }, 400);
+        }
+      }
+    ]
   },
 
   Ranger: {
@@ -219,44 +289,87 @@ export const CLASSES_CONFIG: {
         }
       }, 150); // Задержка всего 150мс (очень быстрый удар)
     },
-    onSkill1: (player) => {
-      player.currentAnimation = 'Dagger_Attack2';
-      player.actionTimer = 0.8; // Этот удар долгий и мощный
+    skills: [
+      {
+        id: 'skill1',
+        name: 'Dagger Strike',
+        icon: '💥',
+        cooldown: 15,
+        onUse: (player) => {
+          player.currentAnimation = 'Dagger_Attack2';
+          player.actionTimer = 0.8; // Этот удар долгий и мощный
 
-      setTimeout(() => {
-        if (!player.rigidBody || !player.threeObject || (player.hp !== undefined && player.hp <= 0))
-          return;
+          setTimeout(() => {
+            if (!player.rigidBody || !player.threeObject || (player.hp !== undefined && player.hp <= 0))
+              return;
 
-        const playerPos = player.rigidBody.translation();
-        const playerRot = player.threeObject.quaternion;
-        const forward = new Vector3(0, 0, 1).applyQuaternion(playerRot).normalize();
-        const playerVec = new Vector3(playerPos.x, playerPos.y, playerPos.z);
+            player.isInvisible = false;
+            const playerPos = player.rigidBody.translation();
+            const playerRot = player.threeObject.quaternion;
+            const forward = new Vector3(0, 0, 1).applyQuaternion(playerRot).normalize();
+            const playerVec = new Vector3(playerPos.x, playerPos.y, playerPos.z);
 
-        const enemies = ECS.world
-          .with('rigidBody', 'id', 'hp')
-          .where((e) => e.id !== player.id && e.hp > 0);
+            // Спавним эффект Даггера ПРЯМО перед персонажем
+            const spawnPos = new Vector3(playerPos.x, playerPos.y + 1, playerPos.z).add(
+              forward.clone().multiplyScalar(1.5),
+            );
 
-        for (const enemy of enemies) {
-          const enemyPos = enemy.rigidBody.translation();
-          const enemyVec = new Vector3(enemyPos.x, enemyPos.y, enemyPos.z);
-          const distance = playerVec.distanceTo(enemyVec);
+            const effectData = {
+              id: Math.random().toString(36).substring(2, 9),
+              isEffect: true,
+              effectType: 'DaggerHit',
+              position: { x: spawnPos.x, y: spawnPos.y, z: spawnPos.z },
+              rotation: { x: playerRot.x, y: playerRot.y, z: playerRot.z, w: playerRot.w },
+            };
 
-          // Суперудар бьет чуть дальше (3 метра)
-          if (distance < 3.0) {
-            const dirToEnemy = new Vector3().subVectors(enemyVec, playerVec).normalize();
-            const angle = forward.angleTo(dirToEnemy);
+            // Спавним у себя для нулевой задержки...
+            ECS.world.add(effectData);
+            // ...и отправляем на сервер, чтобы увидели остальные
+            socket.emit('spawnEffect', effectData);
 
-            // Конус поражения меньше (бьет точечно перед собой)
-            if (angle < Math.PI / 4) {
-              socket.emit('meleeHit', {
-                targetId: enemy.id,
-                damage: 55, // Огромный урон!
-                shooterId: player.id,
-              });
+
+            const enemies = ECS.world
+              .with('rigidBody', 'id', 'hp')
+              .where((e) => e.id !== player.id && e.hp > 0);
+
+            for (const enemy of enemies) {
+              const enemyPos = enemy.rigidBody.translation();
+              const enemyVec = new Vector3(enemyPos.x, enemyPos.y, enemyPos.z);
+              const distance = playerVec.distanceTo(enemyVec);
+
+              // Суперудар бьет чуть дальше (3 метра)
+              if (distance < 3.0) {
+                const dirToEnemy = new Vector3().subVectors(enemyVec, playerVec).normalize();
+                const angle = forward.angleTo(dirToEnemy);
+
+                // Конус поражения меньше (бьет точечно перед собой)
+                if (angle < Math.PI / 4) {
+                  socket.emit('meleeHit', {
+                    targetId: enemy.id,
+                    damage: 55, // Огромный урон!
+                    shooterId: player.id,
+                  });
+                }
+              }
             }
-          }
+          }, 350); // Задержка удара
         }
-      }, 350); // Задержка удара
-    },
+      },
+      {
+        id: 'skill2',
+        name: 'Invisibility',
+        icon: '👻',
+        cooldown: 30,
+        onUse: (player) => {
+          player.isInvisible = true;
+          // Отключаем невидимость через 10 секунд
+          setTimeout(() => {
+            if (player) {
+              player.isInvisible = false;
+            }
+          }, 10000);
+        }
+      }
+    ]
   },
 };
