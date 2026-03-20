@@ -3,25 +3,23 @@ import { useSettingsStore, type KeyMap } from '@/store';
 import styles from './SettingsMenu.module.css';
 
 export const SettingsMenu = () => {
-  const { isNight, keybinds, isOpen, toggleMenu, setNightMode, setKeybind, resetKeybinds } =
-    useSettingsStore();
+  const {
+    isNight, keybinds, isOpen, toggleMenu, setNightMode, setKeybind, resetKeybinds,
+    // ДОСТАЕМ НОВЫЕ ДАННЫЕ И МЕТОДЫ
+    sensitivity, aimSensitivity, setSensitivity, setAimSensitivity
+  } = useSettingsStore();
 
-  // Какую кнопку мы сейчас пытаемся переназначить?
   const [listeningAction, setListeningAction] = useState<keyof KeyMap | null>(null);
 
-  // Ловим нажатие клавиши, если мы находимся в режиме "ожидания"
   useEffect(() => {
     if (!listeningAction) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       e.preventDefault();
-
-      // Если игрок нажал Esc, просто отменяем режим бинда и ничего не сохраняем
       if (e.code === 'Escape') {
         setListeningAction(null);
         return;
       }
-
       setKeybind(listeningAction, e.code);
       setListeningAction(null);
     };
@@ -32,7 +30,6 @@ export const SettingsMenu = () => {
 
   useEffect(() => {
     const handleEscToggle = (e: KeyboardEvent) => {
-      // Срабатывает только если нажали Esc и мы НЕ ждем ввода новой кнопки
       if (e.code === 'Escape' && !listeningAction) {
         toggleMenu();
       }
@@ -61,14 +58,38 @@ export const SettingsMenu = () => {
           </button>
         </div>
 
+        {/* --- КАМЕРА (НОВОЕ) --- */}
+        <h3>Камера</h3>
+        <div className={styles.row}>
+          <span>Чувствительность ({sensitivity.toFixed(1)})</span>
+          <input
+            type="range"
+            min="0.1"
+            max="5.0"
+            step="0.1"
+            value={sensitivity}
+            onChange={(e) => setSensitivity(parseFloat(e.target.value))}
+          />
+        </div>
+        <div className={styles.row}>
+          <span>Прицеливание ({aimSensitivity.toFixed(1)})</span>
+          <input
+            type="range"
+            min="0.1"
+            max="5.0"
+            step="0.1"
+            value={aimSensitivity}
+            onChange={(e) => setAimSensitivity(parseFloat(e.target.value))}
+          />
+        </div>
+
         {/* --- УПРАВЛЕНИЕ --- */}
         <h3>Управление</h3>
         {(Object.keys(keybinds) as Array<keyof KeyMap>).map((action) => (
           <div key={action} className={styles.row}>
             <span className={styles.actionName}>{action}</span>
             <button
-              className={`${styles.btn} ${listeningAction === action ? styles.btnListening : styles.btnDefault
-                }`}
+              className={`${styles.btn} ${listeningAction === action ? styles.btnListening : styles.btnDefault}`}
               onClick={() => setListeningAction(action)}
             >
               {listeningAction === action ? 'Нажмите клавишу...' : keybinds[action].join(', ')}

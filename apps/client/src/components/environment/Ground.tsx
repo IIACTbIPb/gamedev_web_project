@@ -1,3 +1,4 @@
+import { PhysicsGroups } from '@/config/PhysicsGroups';
 import { Grid } from '@react-three/drei';
 import type { ThreeEvent } from '@react-three/fiber';
 import { RigidBody } from '@react-three/rapier';
@@ -33,7 +34,7 @@ export const Ground = () => {
   return (
     <group>
       {/* 1. Наш физический пол (основа, по которой ходим) */}
-      <RigidBody type="fixed" colliders="cuboid">
+      <RigidBody type="fixed" colliders="cuboid" collisionGroups={PhysicsGroups.ENVIRONMENT}>
         <mesh receiveShadow position={[0, -0.5, 0]} onPointerDown={handleGroundClick}>
           <boxGeometry args={[100, 1, 100]} />
           <meshStandardMaterial color="#13231a" />

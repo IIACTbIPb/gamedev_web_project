@@ -4,6 +4,7 @@ import { useGraph } from '@react-three/fiber';
 import { useGLTF, useAnimations } from '@react-three/drei';
 import { type GLTF, SkeletonUtils } from 'three-stdlib';
 import { CapsuleCollider, RigidBody } from '@react-three/rapier';
+import { PhysicsGroups } from '@/config/PhysicsGroups';
 
 type ActionName = 'All Animations';
 
@@ -55,7 +56,7 @@ export function PathfinderNPC({ position, rotation, ...props }: PathfinderNPCPro
   const capYOffset = 2;
 
   return (
-    <RigidBody type="fixed" colliders={false} position={position} rotation={rotation}>
+    <RigidBody type="fixed" colliders={false} position={position} rotation={rotation} collisionGroups={PhysicsGroups.DECORATION}>
       <CapsuleCollider args={[capHalfHeight, capRadius]} position={[0, capYOffset, 0]} />
       <group ref={group} {...props} dispose={null} scale={SCALE}>
         <group>

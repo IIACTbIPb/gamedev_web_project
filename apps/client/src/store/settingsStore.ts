@@ -25,10 +25,17 @@ interface SettingsState {
   isNight: boolean;
   keybinds: KeyMap;
   isOpen: boolean; // Открыто ли меню настроек
+
+  sensitivity: number;
+  aimSensitivity: number;
+
   toggleMenu: () => void;
   setNightMode: (isNight: boolean) => void;
   setKeybind: (action: keyof KeyMap, code: string) => void;
   resetKeybinds: () => void;
+
+  setSensitivity: (val: number) => void;
+  setAimSensitivity: (val: number) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -37,6 +44,12 @@ export const useSettingsStore = create<SettingsState>()(
       isNight: true,
       keybinds: defaultKeybinds,
       isOpen: false,
+
+      sensitivity: 2.0,
+      aimSensitivity: 1.0,
+
+      setSensitivity: (sensitivity) => set({ sensitivity }),
+      setAimSensitivity: (aimSensitivity) => set({ aimSensitivity }),
 
       toggleMenu: () => set((state) => ({ isOpen: !state.isOpen })),
 
@@ -55,7 +68,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: 'game-settings', // Ключ в localStorage браузера
-      partialize: (state) => ({ isNight: state.isNight, keybinds: state.keybinds }), // Сохраняем только это
+      partialize: (state) => ({ isNight: state.isNight, keybinds: state.keybinds, sensitivity: state.sensitivity, aimSensitivity: state.aimSensitivity }), // Сохраняем только это
     },
   ),
 );

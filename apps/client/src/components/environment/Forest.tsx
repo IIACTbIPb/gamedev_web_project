@@ -3,6 +3,7 @@ import { InstancedRigidBodies } from '@react-three/rapier';
 import { Instances, Instance, useGLTF } from '@react-three/drei';
 import type { GLTF } from 'three-stdlib';
 import { LEVEL_01, type TreeData } from './MapConfig';
+import { PhysicsGroups } from '@/config/PhysicsGroups';
 
 // === ТИПЫ ИЗ ТВОЕЙ МОДЕЛИ ===
 type GLTFResult = GLTF & {
@@ -29,12 +30,13 @@ export const Forest = () => {
     position: tree.position,
     rotation: tree.rotation,
     scale: tree.scale,
+    collisionGroups: PhysicsGroups.DECORATION,
   }));
 
   return (
     <group>
       {/* 1. СТВОЛЫ (Без изменений) */}
-      <InstancedRigidBodies instances={instances} type="fixed" colliders="cuboid">
+      <InstancedRigidBodies instances={instances} type="fixed" colliders="cuboid" collisionGroups={PhysicsGroups.DECORATION}>
         <Instances
           range={treeData.length}
           geometry={nodes.Cone001_1.geometry}

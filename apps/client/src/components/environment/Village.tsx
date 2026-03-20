@@ -1,6 +1,7 @@
 import { RigidBody } from '@react-three/rapier';
 import { LEVEL_01 } from './MapConfig';
 import { House } from './House';
+import { PhysicsGroups } from '@/config/PhysicsGroups';
 
 export const Village = () => {
   const houseData = LEVEL_01.houses;
@@ -15,6 +16,7 @@ export const Village = () => {
           key={`physics_house_${house.id}`}
           type="fixed"
           colliders="trimesh"
+          collisionGroups={PhysicsGroups.ENVIRONMENT}
         >
           <House
             position={house.position}

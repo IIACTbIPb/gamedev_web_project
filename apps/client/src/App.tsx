@@ -12,6 +12,7 @@ import { ProjectileSystem, CameraFollowSystem, MovementSystem } from '@/systems'
 import {
   Crosshair,
   DeathScreen,
+  LoadingScreen,
   MainMenu,
   PlayerHUD,
   SettingsMenu,
@@ -197,13 +198,13 @@ function App() {
 
   return (
     <div className={styles.gameContainer}>
+      <LoadingScreen />
       {!isJoined && <MainMenu onSelectClass={handleJoin} />}
       <Crosshair />
       {isJoined && <PlayerHUD />}
       {isJoined && <SkillBar />}
       <DeathScreen />
       <SettingsMenu />
-
       <KeyboardControls map={keyboardMap}>
         <Canvas camera={{ position: [0, 8, 15] }} dpr={[1, 2]}>
           <color attach="background" args={[bgColor]} />

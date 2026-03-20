@@ -3,6 +3,7 @@ import { useGLTF } from '@react-three/drei';
 import { type GLTF } from 'three-stdlib';
 import { RigidBody } from '@react-three/rapier';
 import type { JSX } from 'react';
+import { PhysicsGroups } from '@/config/PhysicsGroups';
 
 type GLTFResult = GLTF & {
   nodes: {
@@ -15,7 +16,7 @@ export function WarriorStatue(props: JSX.IntrinsicElements['group']) {
   const { nodes } = useGLTF('/WarriorMetin.glb') as unknown as GLTFResult;
 
   return (
-    <RigidBody type="fixed" colliders="hull">
+    <RigidBody type="fixed" colliders="hull" collisionGroups={PhysicsGroups.DECORATION}>
       <group {...props} dispose={null}>
         <mesh
           geometry={nodes.mesh_0.geometry}
