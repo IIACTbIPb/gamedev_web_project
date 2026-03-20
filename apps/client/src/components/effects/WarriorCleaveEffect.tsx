@@ -7,13 +7,14 @@ import { Instances, Instance } from '@react-three/drei';
 const SPARK_COUNT = 80;
 const MAX_DISTANCE = 4.0;
 const WAVE_LIFETIME = 0.35;
-
-// === НАСТРОЙКА НАКЛОНА (в радианах) ===
-// Math.PI / 6 = 30 градусов. 
-// Отрицательное значение (-Math.PI/6) наклоняет вправо (удар сверху-справа налево-вниз).
-// Положительное (Math.PI/6) наклоняет влево. 
-// Подгони эту цифру, глядя на свою анимацию Sword_Attack2!
 const TILT_ANGLE = -Math.PI / 4;
+
+// === ГЛОБАЛЬНЫЕ ВРЕМЕННЫЕ ОБЪЕКТЫ (ОПТИМИЗАЦИЯ ПАМЯТИ) ===
+const tempMatrix = new THREE.Matrix4();
+const tempPos = new THREE.Vector3();
+const tempScale = new THREE.Vector3();
+const tempQuat = new THREE.Quaternion();
+const moveVec = new THREE.Vector3();
 
 class SparkData {
     velocity: THREE.Vector3;
@@ -33,14 +34,12 @@ class SparkData {
         this.life = this.maxLife;
         this.size = 0.1 + Math.random() * 0.25;
 
-        // Формируем вертикальную линию спавна
         this.offset = new THREE.Vector3(
-            (Math.random() - 0.5) * 0.2, // Узко по ширине
-            (Math.random() - 0.5) * 2.5, // Длинно по высоте (длина меча)
+            (Math.random() - 0.5) * 0.2,
+            (Math.random() - 0.5) * 2.5,
             0
         );
 
-        // МАГИЯ: Поворачиваем линию спавна искр под тем же углом, что и лезвие!
         this.offset.applyAxisAngle(new THREE.Vector3(0, 0, 1), TILT_ANGLE);
     }
 
@@ -95,49 +94,46 @@ export const WarriorCleaveEffect: React.FC<WarriorCleaveEffectProps> = ({ positi
             lightRef.current.intensity = scaleFade * 30;
         }
 
-        // === 2. ПОЛЕТ ИСКР ===
-        const tempMatrix = new THREE.Matrix4();
-        const tempPos = new THREE.Vector3();
-        const tempScale = new THREE.Vector3();
-        const tempQuat = new THREE.Quaternion();
+        // === 2. ПОЛЕТ ИСКР (ОПТИМИЗИРОВАННО) ===
+        if (sparkApi.current) {
+            for (let i = 0; i < sparks.length; i++) {
+                const p = sparks[i];
+                p.update(delta);
 
-        sparks.forEach((p, i) => {
-            p.update(delta);
+                if (p.life > 0) {
+                    tempPos.copy(p.offset);
 
-            if (p.life > 0) {
-                tempPos.copy(p.offset); // Искры стартуют уже с учетом наклона!
+                    // Избегаем p.velocity.clone()
+                    moveVec.copy(p.velocity).multiplyScalar(p.maxLife - p.life);
+                    tempPos.add(moveVec);
 
-                const moveVec = p.velocity.clone().multiplyScalar(p.maxLife - p.life);
-                tempPos.add(moveVec);
+                    const sparkProgress = 1 - p.life / p.maxLife;
+                    const currentScale = p.size * (1 - sparkProgress);
 
-                const sparkProgress = 1 - p.life / p.maxLife;
-                const currentScale = p.size * (1 - sparkProgress);
-
-                tempScale.set(currentScale, currentScale, currentScale);
-                tempMatrix.compose(tempPos, tempQuat, tempScale);
-            } else {
-                tempMatrix.makeScale(0, 0, 0);
+                    tempScale.set(currentScale, currentScale, currentScale);
+                    tempQuat.identity(); // Сбрасываем кватернион
+                    tempMatrix.compose(tempPos, tempQuat, tempScale);
+                } else {
+                    tempScale.set(0, 0, 0);
+                    tempQuat.identity();
+                    tempMatrix.compose(tempPos, tempQuat, tempScale);
+                }
+                sparkApi.current.setMatrixAt(i, tempMatrix);
             }
-            sparkApi.current?.setMatrixAt(i, tempMatrix);
-        });
-
-        if (sparkApi.current) sparkApi.current.instanceMatrix.needsUpdate = true;
+            sparkApi.current.instanceMatrix.needsUpdate = true;
+        }
     });
 
     if (!active) return null;
 
     return (
         <group position={[position.x, position.y, position.z]} quaternion={quat}>
-
             <pointLight ref={lightRef} color="#ff6600" distance={8} decay={2} intensity={30} />
 
-            {/* Передали наклон в rotation мешей */}
             <mesh ref={waveCoreRef} rotation={[0, 0, TILT_ANGLE]}>
                 <sphereGeometry args={[1, 16, 16]} />
-                <meshStandardMaterial
+                <meshBasicMaterial
                     color="#ffffff"
-                    emissive="#ffcc00"
-                    emissiveIntensity={10}
                     transparent
                     depthWrite={false}
                     blending={THREE.AdditiveBlending}
@@ -146,10 +142,8 @@ export const WarriorCleaveEffect: React.FC<WarriorCleaveEffectProps> = ({ positi
 
             <mesh ref={waveGlowRef} rotation={[0, 0, TILT_ANGLE]}>
                 <sphereGeometry args={[1, 16, 16]} />
-                <meshStandardMaterial
+                <meshBasicMaterial
                     color="#ff3300"
-                    emissive="#ff0000"
-                    emissiveIntensity={5}
                     transparent
                     opacity={0.6}
                     depthWrite={false}
@@ -159,10 +153,8 @@ export const WarriorCleaveEffect: React.FC<WarriorCleaveEffectProps> = ({ positi
 
             <Instances range={SPARK_COUNT} ref={sparkApi}>
                 <dodecahedronGeometry args={[1, 0]} />
-                <meshStandardMaterial
+                <meshBasicMaterial
                     color="#ffcc00"
-                    emissive="#ff6600"
-                    emissiveIntensity={8}
                     transparent
                     depthWrite={false}
                     blending={THREE.AdditiveBlending}

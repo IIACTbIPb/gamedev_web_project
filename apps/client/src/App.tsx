@@ -22,9 +22,10 @@ import { PathfinderNPC } from '@/components/entities/npcs';
 import { useSettingsStore } from '@/store';
 import { Effects } from '@/components/effects';
 import { DamageNumbersManager, NameplatesManager } from '@/components/world-ui';
-import { Ground, WarriorStatue } from '@/components/environment';
+import { Forest, Ground, Village, WarriorStatue } from '@/components/environment';
 import { Projectiles } from '@/components/entities/projectiles';
 import { Player } from '@/components/entities/characters';
+import { Perf } from 'r3f-perf';
 
 
 function App() {
@@ -206,6 +207,7 @@ function App() {
       <KeyboardControls map={keyboardMap}>
         <Canvas camera={{ position: [0, 8, 15] }} dpr={[1, 2]}>
           <color attach="background" args={[bgColor]} />
+          <Perf position="top-right" />
           {isNight && <Stars radius={100} depth={50} count={5000} factor={4} fade />}
 
           <mesh position={[30, 40, -40]}>
@@ -223,12 +225,13 @@ function App() {
           <Environment preset="city" environmentIntensity={0.3} />
 
           <Physics debug={false}>
-            {/* Можно отключить дебаг физики, если мешает */}
+            {/* environments */}
             <Ground />
-            {/* Статуя где-то вдалеке */}
-            <WarriorStatue position={[0, 2, -15]} scale={2} />
+            <Forest />
+            <WarriorStatue position={[-23, 2, -25]} scale={2} rotation={[0, 0.5, 0]} />
+            <Village />
             {/* NPCs */}
-            <PathfinderNPC position={[-35, 0, 5]} rotation={[0, 6, 0]} />
+            <PathfinderNPC position={[-15, 0, 5]} rotation={[0, -5, 0]} />
             {/* Системы */}
             <MovementSystem />
             <CameraFollowSystem />
