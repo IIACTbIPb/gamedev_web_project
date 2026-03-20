@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { ECS } from '../ecs'; // <-- Берем ECS
-import { CLASSES_CONFIG } from '../classesConfig';
+import { ECS } from '@/ecs';
+import { CLASSES_CONFIG } from '@/classesConfig';
 import type { AnimSettings, AnyAnimation, CharacterClass } from '@game/shared';
 
 export const useCharacterAnimation = (
@@ -10,7 +10,8 @@ export const useCharacterAnimation = (
   classType: CharacterClass,
   actions: Record<string, THREE.AnimationAction | null>,
 ) => {
-  const currentAnim = useRef<string>('Idle');
+  const defaultAnim = CLASSES_CONFIG[classType].locomotion.idle as string;
+  const currentAnim = useRef<string>(defaultAnim);
   const classAnimations = CLASSES_CONFIG[classType].animations;
 
   useEffect(() => {
@@ -29,8 +30,8 @@ export const useCharacterAnimation = (
       }
     });
 
-    if (actions['Idle']) actions['Idle'].reset().play();
-  }, [actions, classAnimations]);
+    if (actions[defaultAnim]) actions[defaultAnim].reset().play();
+  }, [actions, classAnimations, defaultAnim]);
 
   useFrame(() => {
     const entity = ECS.world.where((e) => e.id === id).first;

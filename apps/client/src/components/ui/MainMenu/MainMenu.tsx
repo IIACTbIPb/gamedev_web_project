@@ -2,7 +2,7 @@ import { useState } from 'react'; // <-- ДОБАВИЛИ ИМПОРТ
 import { Canvas } from '@react-three/fiber';
 import type { CharacterClass } from '@game/shared';
 import styles from './MainMenu.module.css';
-import { ModelPreview } from '../previews';
+import { ModelPreview } from '../shared';
 
 interface MainMenuProps {
   // <-- ОБНОВИЛИ ПРОПС: теперь передаем класс и имя

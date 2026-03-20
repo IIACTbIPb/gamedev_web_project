@@ -1,5 +1,6 @@
 import { useRef, useEffect } from 'react';
 import { useGLTF, useAnimations } from '@react-three/drei';
+import { useFrame } from '@react-three/fiber'; // <-- ДОБАВИЛИ ИМПОРТ
 import * as THREE from 'three';
 
 interface ModelPreviewProps {
@@ -8,33 +9,33 @@ interface ModelPreviewProps {
   position?: [number, number, number];
 }
 
-// Универсальный компонент для просмотра модели в меню
 export const ModelPreview = ({ url, scale = 1, position = [0, 0, 0] }: ModelPreviewProps) => {
   const group = useRef<THREE.Group>(null);
   const { scene, animations } = useGLTF(url);
   const { actions } = useAnimations(animations, group);
 
   useEffect(() => {
-    // Включаем Idle анимацию, если она есть
+    // Включаем анимацию
     const idleAction = actions['Idle'];
     if (idleAction) {
       idleAction.reset().fadeIn(0.2).play();
     }
-
-    // Медленное вращение для красоты
-    let frameId: number;
-    const animate = () => {
-      if (group.current) group.current.rotation.y += 0.005;
-      frameId = requestAnimationFrame(animate);
-    };
-    animate();
-
-    return () => cancelAnimationFrame(frameId);
+    // Нам больше не нужно возвращать функцию очистки для отмены анимации, 
+    // R3F сделает всё сам!
   }, [actions]);
+
+  // === ПРАВИЛЬНОЕ ВРАЩЕНИЕ В R3F ===
+  useFrame((_state, delta) => {
+    if (group.current) {
+      // delta - это время между кадрами. 
+      // Умножая на скорость (например, 0.3), мы получаем плавное вращение
+      // независимое от FPS монитора!
+      group.current.rotation.y += delta * 0.3;
+    }
+  });
 
   return (
     <group ref={group} scale={scale} position={position}>
-      {/* Применяем тени для красоты */}
       <primitive object={scene} castShadow receiveShadow />
     </group>
   );

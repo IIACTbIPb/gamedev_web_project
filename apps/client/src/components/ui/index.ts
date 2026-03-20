@@ -4,4 +4,3 @@ export { PlayerHUD } from './PlayerHUD/PlayerHUD';
 export { DeathScreen } from './DeathScreen/DeathScreen';
 export { SettingsMenu } from './SettingsMenu/SettingsMenu';
 export { SkillBar } from './SkillBar/SkillBar';
-export { NameplatesManager } from './NameplatesManager/NameplatesManager';

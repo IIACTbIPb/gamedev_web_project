@@ -2,10 +2,10 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { useKeyboardControls } from '@react-three/drei';
 import { Vector3, Quaternion } from 'three';
 import { useRef, useEffect } from 'react';
-import { ECS } from '../ecs';
-import { socket } from '../socket';
-import { CLASSES_CONFIG } from '../classesConfig';
-import { useUIStore } from '../store';
+import { ECS } from '@/ecs';
+import { socket } from '@/socket';
+import { CLASSES_CONFIG } from '@/classesConfig';
+import { useUIStore } from '@/store';
 
 // === 1. ГЕЙМПЛЕЙНЫЕ КОНСТАНТЫ ===
 // Легко балансировать игру из одного места
@@ -179,8 +179,16 @@ export const MovementSystem = () => {
     const isAirborne = !isGrounded && groundedFrames.current === 0;
 
     // --- Д. АНИМАЦИИ ---
-    if (!isActionLocked && !player.isAiming) {
-      player.currentAnimation = isAirborne ? 'Roll' : (isMoving ? 'Run' : 'Idle');
+    if (!isActionLocked && !player.isAiming && player.classType) {
+      // Достаем конфиг текущего класса
+      const classLogic = CLASSES_CONFIG[player.classType];
+
+      if (classLogic) {
+        // Динамически берем названия анимаций из конфига!
+        player.currentAnimation = isAirborne
+          ? classLogic.locomotion.airborne
+          : (isMoving ? classLogic.locomotion.run : classLogic.locomotion.idle);
+      }
     }
 
     // --- Е. СЕТЕВАЯ СИНХРОНИЗАЦИЯ (Network Diffing) ---

@@ -4,8 +4,8 @@ import { useGraph } from '@react-three/fiber';
 import { useGLTF, useAnimations } from '@react-three/drei';
 import { SkeletonUtils } from 'three-stdlib';
 import type { GLTF } from 'three-stdlib'; // 1. Исправлен импорт типа
-import { useCharacterAnimation } from '../../hooks/useCharacterAnimation';
 import type { WarriorAnimation } from '@game/shared';
+import { useCharacterAnimation } from '@/hooks/useCharacterAnimation';
 
 interface GLTFAction extends THREE.AnimationClip {
   name: WarriorAnimation;

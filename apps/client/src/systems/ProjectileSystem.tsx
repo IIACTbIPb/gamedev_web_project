@@ -1,6 +1,6 @@
 import { useFrame } from '@react-three/fiber';
-import { ECS } from '../ecs';
-import { socket } from '../socket';
+import { ECS } from '@/ecs';
+import { socket } from '@/socket';
 
 const projectiles = ECS.world.with('isProjectile', 'position', 'velocity', 'lifeTime', 'ownerId');
 const players = ECS.world.with('rigidBody', 'id');

@@ -3,9 +3,9 @@ import React, { type JSX } from 'react';
 import { useGraph, useFrame } from '@react-three/fiber';
 import { useGLTF, useAnimations } from '@react-three/drei';
 import { type GLTF, SkeletonUtils } from 'three-stdlib';
-import { useCharacterAnimation } from '../../hooks/useCharacterAnimation';
-import { ECS } from '../../ecs';
 import type { RogueAnimation } from '@game/shared';
+import { useCharacterAnimation } from '@/hooks/useCharacterAnimation';
+import { ECS } from '@/ecs';
 
 interface GLTFAction extends THREE.AnimationClip {
   name: RogueAnimation;

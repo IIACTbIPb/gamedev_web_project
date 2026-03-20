@@ -1,5 +1,5 @@
 import styles from './PlayerHUD.module.css';
-import { useUIStore } from '../../../store/uiStore';
+import { useUIStore } from '@/store/uiStore';
 
 export const PlayerHUD = () => {
   const hp = useUIStore((state) => state.hp);

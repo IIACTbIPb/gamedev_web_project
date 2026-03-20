@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import React, { useRef, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Instances, Instance } from '@react-three/drei';
-import { ECS } from '../../ecs';
+import { ECS } from '@/ecs';
 
 // === КОНФИГУРАЦИЯ СЛЕДА ===
 const TOTAL_PARTICLES = 200;

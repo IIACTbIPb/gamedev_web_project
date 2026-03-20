@@ -5,26 +5,26 @@ import * as THREE from 'three';
 import { Physics } from '@react-three/rapier';
 import type { CharacterClass, GameState } from '@game/shared';
 
-import { Player } from './components/characters';
 import styles from './App.module.css';
-import { socket } from './socket';
-import { ECS } from './ecs';
-import { ProjectileSystem, CameraFollowSystem, MovementSystem } from './systems';
+import { socket } from '@/socket';
+import { ECS } from '@/ecs';
+import { ProjectileSystem, CameraFollowSystem, MovementSystem } from '@/systems';
 import {
   Crosshair,
   DeathScreen,
   MainMenu,
-  NameplatesManager,
   PlayerHUD,
   SettingsMenu,
   SkillBar,
-} from './components/ui';
-import { useUIStore } from './store/uiStore';
-import { WarriorStatue } from './components/props';
-import { Projectiles, Ground } from './components/word';
-import { PathfinderNPC } from './components/npcs';
-import { useSettingsStore } from './store';
-import { Effects } from './components/effects';
+} from '@/components/ui';
+import { useUIStore } from '@/store/uiStore';
+import { PathfinderNPC } from '@/components/entities/npcs';
+import { useSettingsStore } from '@/store';
+import { Effects } from '@/components/effects';
+import { DamageNumbersManager, NameplatesManager } from '@/components/world-ui';
+import { Ground, WarriorStatue } from '@/components/environment';
+import { Projectiles } from '@/components/entities/projectiles';
+import { Player } from '@/components/entities/characters';
 
 
 function App() {
@@ -259,6 +259,7 @@ function App() {
             }}
           />
           <NameplatesManager />
+          <DamageNumbersManager />
         </Canvas>
       </KeyboardControls>
     </div>

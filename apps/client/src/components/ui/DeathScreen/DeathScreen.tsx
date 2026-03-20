@@ -1,6 +1,6 @@
-import { useUIStore } from '../../../store/uiStore';
-import { socket } from '../../../socket';
-import { ECS } from '../../../ecs'; // <-- ДОБАВИЛИ ИМПОРТ ECS
+import { useUIStore } from '@/store/uiStore';
+import { socket } from '@/socket';
+import { ECS } from '@/ecs';
 import styles from './DeathScreen.module.css';
 
 export const DeathScreen = () => {

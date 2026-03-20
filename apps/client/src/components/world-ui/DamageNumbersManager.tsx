@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Text } from '@react-three/drei';
-import { ECS } from '../../ecs';
+import { ECS } from '@/ecs';
 import { useEntities } from 'miniplex-react';
 
 const FLOAT_SPEED = 1.5;

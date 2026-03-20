@@ -3,7 +3,7 @@ import React, { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Text } from '@react-three/drei';
 import { useEntities } from 'miniplex-react';
-import { ECS, type Entity } from '../../../ecs';
+import { ECS, type Entity } from '@/ecs';
 
 // === ОТДЕЛЬНЫЙ КОМПОНЕНТ ДЛЯ ОДНОГО ИГРОКА ===
 // Мы выносим его, чтобы у каждого игрока был свой useFrame для плавного следования

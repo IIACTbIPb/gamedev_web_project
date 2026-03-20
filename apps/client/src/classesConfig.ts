@@ -1,7 +1,5 @@
-import { Vector3, Camera, Vector2, Raycaster } from 'three';
-import { ECS } from './ecs'; // <-- Обновили импорт
-import { socket } from './socket';
-import type { Entity } from './ecs';
+import type { Camera } from 'three';
+import type { Entity } from '@/ecs';
 import type {
   AnimSettings,
   BaseAnimation,
@@ -9,8 +7,10 @@ import type {
   RogueAnimation,
   WarriorAnimation,
 } from '@game/shared';
+import { rangerConfig, rogueConfig, warriorConfig } from '@/components/entities/characters';
 
-const BASE_ANIMATIONS: Record<BaseAnimation, AnimSettings> = {
+
+export const BASE_ANIMATIONS: Record<BaseAnimation, AnimSettings> = {
   Idle: { loop: true, speed: 1, fade: 0.2 },
   Run: { loop: true, speed: 1, fade: 0.2 },
   Roll: { loop: false, speed: 1.5, fade: 0.05 },
@@ -20,16 +20,20 @@ const BASE_ANIMATIONS: Record<BaseAnimation, AnimSettings> = {
 };
 
 export interface SkillConfig {
-  id: string; // 'skill1', 'skill2', 'skill3'
-  name: string; // Название для UI
-  icon: string; // Иконка для UI
-  cooldown: number; // В секундах
+  id: string;
+  name: string;
+  icon: string;
+  cooldown: number;
   onUse: (player: Entity) => void;
 }
 
 export interface ClassConfig<T extends string> {
   animations: Partial<Record<T, AnimSettings>> & Record<BaseAnimation, AnimSettings>;
-  // Теперь у нас две фазы атаки:
+  locomotion: {
+    idle: T | BaseAnimation;
+    run: T | BaseAnimation;
+    airborne: T | BaseAnimation;
+  };
   onPrimaryAttackStart: (player: Entity) => void;
   onPrimaryAttackRelease?: (player: Entity, camera: Camera) => void;
   skills?: SkillConfig[];
@@ -40,366 +44,7 @@ export const CLASSES_CONFIG: {
   Ranger: ClassConfig<RangerAnimation>;
   Rogue: ClassConfig<RogueAnimation>;
 } = {
-  Warrior: {
-    animations: {
-      ...BASE_ANIMATIONS,
-      Sword_Attack: { loop: false, speed: 1, fade: 0.05 },
-      Sword_Attack2: { loop: false, speed: 0.9, fade: 0.05 },
-    },
-    onPrimaryAttackStart: (player) => {
-      player.currentAnimation = 'Sword_Attack';
-      player.actionTimer = 0.6; // Блокируем новые атаки на 0.6 сек
-
-      // Делаем задержку в 300мс, чтобы урон прошел на середине взмаха меча!
-      setTimeout(() => {
-        // Если за эти 300мс мы сами успели умереть, или отключились - отменяем удар
-        if (!player.rigidBody || !player.threeObject || (player.hp !== undefined && player.hp <= 0))
-          return;
-
-        const playerPos = player.rigidBody.translation();
-        const playerRot = player.threeObject.quaternion;
-
-        // 1. Вычисляем вектор взгляда воина (куда он смотрит)
-        const forward = new Vector3(0, 0, 1).applyQuaternion(playerRot).normalize();
-        const playerVec = new Vector3(playerPos.x, playerPos.y, playerPos.z);
-
-        // 2. Ищем всех живых врагов в ECS
-        const enemies = ECS.world
-          .with('rigidBody', 'id', 'hp')
-          .where((e) => e.id !== player.id && e.hp > 0);
-
-        for (const enemy of enemies) {
-          const enemyPos = enemy.rigidBody.translation();
-          const enemyVec = new Vector3(enemyPos.x, enemyPos.y, enemyPos.z);
-
-          // 3. Проверяем ДИСТАНЦИЮ (радиус поражения мечом = 3 метра)
-          const distance = playerVec.distanceTo(enemyVec);
-
-          if (distance < 3.0) {
-            // 4. Проверяем УГОЛ (чтобы не бить врагов за спиной)
-            const dirToEnemy = new Vector3().subVectors(enemyVec, playerVec).normalize();
-
-            // angleTo возвращает радианы. Math.PI / 3 = 60 градусов (конус 120 градусов перед игроком)
-            const angle = forward.angleTo(dirToEnemy);
-
-            if (angle < Math.PI / 3) {
-              // 🎯 ПОПАДАНИЕ! Отправляем урон на сервер
-              socket.emit('meleeHit', {
-                targetId: enemy.id,
-                damage: 35, // Меч бьет больнее стрелы (35 против 25)
-                shooterId: player.id, // Для экрана смерти
-              });
-
-              // Если хочешь "сплэш-урон" (удар по всем врагам перед собой), оставляй так.
-              // Если хочешь бить только ОДНОГО врага за раз, раскомментируй break ниже:
-              // break;
-            }
-          }
-        }
-      }, 300); // 300 мс задержка
-    },
-    skills: [
-      {
-        id: 'skill1',
-        name: 'Heavy Cleave',
-        icon: '⚔️', // Эмодзи-заглушка, заменишь потом в SkillBar
-        cooldown: 2, // 8 секунд перезарядки
-        onUse: (player) => {
-          player.currentAnimation = 'Sword_Attack2';
-          player.actionTimer = 1.0; // Игрок замирает на 1 секунду!
-
-          // Удар происходит чуть позже (на 400мс), так как замах тяжелый
-          setTimeout(() => {
-            if (!player.rigidBody || !player.threeObject || (player.hp !== undefined && player.hp <= 0))
-              return;
-
-            const playerPos = player.rigidBody.translation();
-            const playerRot = player.threeObject.quaternion;
-            const forward = new Vector3(0, 0, 1).applyQuaternion(playerRot).normalize();
-            const playerVec = new Vector3(playerPos.x, playerPos.y, playerPos.z);
-
-            const effectData = {
-              id: Math.random().toString(36).substring(2, 9),
-              isEffect: true,
-              effectType: 'WarriorCleave',
-              // Спавним чуть впереди игрока и на уровне груди
-              position: { x: playerPos.x, y: playerPos.y + 1.2, z: playerPos.z },
-              // Передаем вращение игрока, чтобы волна полетела туда, куда он смотрит
-              rotation: { x: playerRot.x, y: playerRot.y, z: playerRot.z, w: playerRot.w },
-            };
-            ECS.world.add(effectData); // Себе
-            socket.emit('spawnEffect', effectData); // Другим
-
-            const enemies = ECS.world
-              .with('rigidBody', 'id', 'hp')
-              .where((e) => e.id !== player.id && e.hp > 0);
-
-            for (const enemy of enemies) {
-              const enemyPos = enemy.rigidBody.translation();
-              const enemyVec = new Vector3(enemyPos.x, enemyPos.y, enemyPos.z);
-
-              const distance = playerVec.distanceTo(enemyVec);
-
-              if (distance < 5) {
-                const dirToEnemy = new Vector3().subVectors(enemyVec, playerVec).normalize();
-                const angle = forward.angleTo(dirToEnemy);
-
-                // Широкий размах! Угол Math.PI / 2 означает 180 градусов перед воином
-                // Он заденет всех врагов, стоящих спереди и по бокам
-                if (angle < Math.PI / 2) {
-                  socket.emit('meleeHit', {
-                    targetId: enemy.id,
-                    damage: 60, // Сносит больше половины ХП за раз
-                    shooterId: player.id,
-                  });
-                }
-              }
-            }
-          }, 400);
-        }
-      }
-    ]
-  },
-
-  Ranger: {
-    animations: {
-      ...BASE_ANIMATIONS,
-      Bow_Draw: { loop: false, speed: 1.5, fade: 0.1 }, // Анимация натяжения (остановится в конце)
-      Bow_Shoot: { loop: false, speed: 2, fade: 0.05 },
-    },
-    onPrimaryAttackStart: (player) => {
-      player.isAiming = true;
-      player.currentAnimation = 'Bow_Draw';
-      player.actionTimer = 999; // Блокируем движение, пока целимся!
-
-      // Бросаем ивент для интерфейса, чтобы показать прицел
-      window.dispatchEvent(new Event('aimStart'));
-    },
-    onPrimaryAttackRelease: (player, camera) => {
-      if (!player.isAiming) return; // Защита от случайных отпусканий
-
-      player.isAiming = false;
-      player.currentAnimation = 'Bow_Shoot';
-      player.actionTimer = 0.5; // Разблокируем движение через полсекунды
-      window.dispatchEvent(new Event('aimEnd')); // Прячем прицел
-
-      if (player.rigidBody && player.threeObject) {
-        const playerPos = player.rigidBody.translation();
-
-        // === ИСПРАВЛЕННЫЙ РЕЙКАСТИНГ (Идеальная точность) ===
-        const raycaster = new Raycaster();
-        raycaster.setFromCamera(new Vector2(0, 0), camera);
-
-        const targetPoint = new Vector3();
-        // 1. Берем точку ровно по центру крестика на расстоянии 25 метров.
-        // (Убрали поиск пола, чтобы луч не ломался при прицеливании во врага)
-        raycaster.ray.at(25, targetPoint);
-
-        const startPos = new Vector3(playerPos.x, playerPos.y + 1.5, playerPos.z);
-
-        // Истинное 3D-направление выстрела
-        const direction = new Vector3().subVectors(targetPoint, startPos).normalize();
-
-        // Поворачиваем модельку
-        const targetAngle = Math.atan2(direction.x, direction.z);
-        player.threeObject.quaternion.setFromAxisAngle(new Vector3(0, 1, 0), targetAngle);
-
-        // 2. Получаем вектор "вправо" от камеры
-        const cameraRight = new Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
-        cameraRight.y = 0;
-        cameraRight.normalize();
-
-        const flatDirection = new Vector3(direction.x, 0, direction.z);
-        if (flatDirection.lengthSq() > 0.001) {
-          flatDirection.normalize();
-        } else {
-          flatDirection.set(0, 0, 1);
-        }
-
-        const spawnDistance = 1.5;
-
-        // 3. СМЕЩАЕМ СПАВН ПРАВЕЕ (cameraRight.x * 0.5)
-        // Стрела появится ближе к линии взгляда камеры, убирая косой параллакс!
-        const spawnPos = {
-          x: playerPos.x + flatDirection.x * spawnDistance + cameraRight.x * 0.5,
-          y: playerPos.y + 1.4,
-          z: playerPos.z + flatDirection.z * spawnDistance + cameraRight.z * 0.5,
-        };
-
-        const arrowSpeed = 45;
-        const arrowData = {
-          id: Math.random().toString(36).substring(2, 9),
-          ownerId: player.id,
-          isProjectile: true,
-          position: spawnPos,
-          velocity: {
-            x: direction.x * arrowSpeed,
-            y: direction.y * arrowSpeed,
-            z: direction.z * arrowSpeed,
-          },
-          lifeTime: 8,
-        };
-
-        ECS.world.add(arrowData); // <-- Используем ECS.world
-        socket.emit('shoot', arrowData);
-      }
-    },
-    skills: [
-      {
-        id: 'skill1',
-        name: 'Sprint',
-        icon: '💨',
-        cooldown: 15,
-        onUse: (player) => {
-          player.currentAnimation = 'Idle_Attacking'
-          player.actionTimer = 0.5;
-
-          // === МАГИЯ ФИЗИКИ: ПОДБРАСЫВАЕМ ВВЕРХ ===
-          if (player.rigidBody) {
-            // Сила импульса (8 — это примерное значение, как у прыжка.
-            // Попробуй значения от 5 до 12, чтобы найти идеальный баланс)
-            const upwardImpulse = { x: 0, y: 8, z: 0 };
-
-            // Применяем импульс. Второй аргумент true — "wake up" тела, если оно спало.
-            player.rigidBody.applyImpulse(upwardImpulse, true);
-          }
-          // ===========================================
-
-          player.speedBuffTimer = 10;
-          player.speed = 13;
-          // Опционально: можно запустить легкую анимацию Roll или просто оставить бег
-          // При желании здесь же можно заспавнить эффект пыли из-под ног!
-        }
-      }
-    ]
-  },
-  Rogue: {
-    animations: {
-      ...BASE_ANIMATIONS,
-      Dagger_Attack: { loop: false, speed: 1.5, fade: 0.05 },
-      Dagger_Attack2: { loop: false, speed: 1, fade: 0.05 },
-    },
-
-    onPrimaryAttackStart: (player) => {
-      player.currentAnimation = 'Dagger_Attack';
-      // === ДЕЛАЕМ АТАКУ БЫСТРОЙ ===
-      player.actionTimer = 0.4; // Блокируем новые атаки всего на 0.35 сек
-
-      setTimeout(() => {
-        if (!player.rigidBody || !player.threeObject || (player.hp !== undefined && player.hp <= 0))
-          return;
-
-        const playerPos = player.rigidBody.translation();
-        const playerRot = player.threeObject.quaternion;
-        const forward = new Vector3(0, 0, 1).applyQuaternion(playerRot).normalize();
-        const playerVec = new Vector3(playerPos.x, playerPos.y, playerPos.z);
-
-        const enemies = ECS.world
-          .with('rigidBody', 'id', 'hp')
-          .where((e) => e.id !== player.id && e.hp > 0);
-
-        for (const enemy of enemies) {
-          const enemyPos = enemy.rigidBody.translation();
-          const enemyVec = new Vector3(enemyPos.x, enemyPos.y, enemyPos.z);
-          const distance = playerVec.distanceTo(enemyVec);
-
-          // У кинжала радиус поражения чуть меньше, чем у меча (2.5 метра)
-          if (distance < 2.5) {
-            const dirToEnemy = new Vector3().subVectors(enemyVec, playerVec).normalize();
-            const angle = forward.angleTo(dirToEnemy);
-
-            if (angle < Math.PI / 3) {
-              socket.emit('meleeHit', {
-                targetId: enemy.id,
-                damage: 15, // Урон меньше
-                shooterId: player.id,
-              });
-            }
-          }
-        }
-      }, 150); // Задержка всего 150мс (очень быстрый удар)
-    },
-    skills: [
-      {
-        id: 'skill1',
-        name: 'Dagger Strike',
-        icon: '💥',
-        cooldown: 15,
-        onUse: (player) => {
-          player.currentAnimation = 'Dagger_Attack2';
-          player.actionTimer = 0.8; // Этот удар долгий и мощный
-
-          setTimeout(() => {
-            if (!player.rigidBody || !player.threeObject || (player.hp !== undefined && player.hp <= 0))
-              return;
-
-            player.isInvisible = false;
-            const playerPos = player.rigidBody.translation();
-            const playerRot = player.threeObject.quaternion;
-            const forward = new Vector3(0, 0, 1).applyQuaternion(playerRot).normalize();
-            const playerVec = new Vector3(playerPos.x, playerPos.y, playerPos.z);
-
-            // Спавним эффект Даггера ПРЯМО перед персонажем
-            const spawnPos = new Vector3(playerPos.x, playerPos.y + 1, playerPos.z).add(
-              forward.clone().multiplyScalar(1.5),
-            );
-
-            const effectData = {
-              id: Math.random().toString(36).substring(2, 9),
-              isEffect: true,
-              effectType: 'DaggerHit',
-              position: { x: spawnPos.x, y: spawnPos.y, z: spawnPos.z },
-              rotation: { x: playerRot.x, y: playerRot.y, z: playerRot.z, w: playerRot.w },
-            };
-
-            // Спавним у себя для нулевой задержки...
-            ECS.world.add(effectData);
-            // ...и отправляем на сервер, чтобы увидели остальные
-            socket.emit('spawnEffect', effectData);
-
-
-            const enemies = ECS.world
-              .with('rigidBody', 'id', 'hp')
-              .where((e) => e.id !== player.id && e.hp > 0);
-
-            for (const enemy of enemies) {
-              const enemyPos = enemy.rigidBody.translation();
-              const enemyVec = new Vector3(enemyPos.x, enemyPos.y, enemyPos.z);
-              const distance = playerVec.distanceTo(enemyVec);
-
-              // Суперудар бьет чуть дальше (3 метра)
-              if (distance < 3.0) {
-                const dirToEnemy = new Vector3().subVectors(enemyVec, playerVec).normalize();
-                const angle = forward.angleTo(dirToEnemy);
-
-                // Конус поражения меньше (бьет точечно перед собой)
-                if (angle < Math.PI / 4) {
-                  socket.emit('meleeHit', {
-                    targetId: enemy.id,
-                    damage: 55, // Огромный урон!
-                    shooterId: player.id,
-                  });
-                }
-              }
-            }
-          }, 350); // Задержка удара
-        }
-      },
-      {
-        id: 'skill2',
-        name: 'Invisibility',
-        icon: '👻',
-        cooldown: 30,
-        onUse: (player) => {
-          player.isInvisible = true;
-          // Отключаем невидимость через 10 секунд
-          setTimeout(() => {
-            if (player) {
-              player.isInvisible = false;
-            }
-          }, 10000);
-        }
-      }
-    ]
-  },
+  Warrior: warriorConfig,
+  Ranger: rangerConfig,
+  Rogue: rogueConfig,
 };

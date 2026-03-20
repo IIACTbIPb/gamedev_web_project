@@ -1,5 +1,5 @@
-import { useSettingsStore, useUIStore } from '../../../store';
-import { CLASSES_CONFIG } from '../../../classesConfig';
+import { useSettingsStore, useUIStore } from '@/store';
+import { CLASSES_CONFIG } from '@/classesConfig';
 import styles from './SkillBar.module.css';
 
 export const SkillBar = () => {

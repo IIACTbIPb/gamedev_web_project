@@ -2,7 +2,7 @@ import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Vector3, MathUtils, PerspectiveCamera } from 'three';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
-import { ECS } from '../ecs';
+import { ECS } from '@/ecs';
 
 const localPlayers = ECS.world.with('rigidBody', 'isMe').where((e) => e.isMe === true);
 

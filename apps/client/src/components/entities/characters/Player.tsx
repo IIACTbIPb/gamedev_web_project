@@ -2,11 +2,11 @@ import { useEffect, useState, type JSX } from 'react';
 import { RigidBody, type RapierRigidBody, CapsuleCollider } from '@react-three/rapier';
 import type { Group } from 'three';
 import { ECS } from '../../ecs';
-import { Warrior } from './Warrior';
 import type { CharacterClass } from '@game/shared';
 import { useUIStore } from '../../store/uiStore';
 import { Ranger } from './Ranger';
 import { Rogue } from './Rogue';
+import { Warrior } from './Warrior';
 
 interface PlayerProps {
   id: string;

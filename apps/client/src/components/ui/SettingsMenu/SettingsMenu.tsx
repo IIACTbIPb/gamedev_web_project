@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useSettingsStore, type KeyMap } from '../../../store';
+import { useSettingsStore, type KeyMap } from '@/store';
 import styles from './SettingsMenu.module.css';
 
 export const SettingsMenu = () => {
@@ -67,9 +67,8 @@ export const SettingsMenu = () => {
           <div key={action} className={styles.row}>
             <span className={styles.actionName}>{action}</span>
             <button
-              className={`${styles.btn} ${
-                listeningAction === action ? styles.btnListening : styles.btnDefault
-              }`}
+              className={`${styles.btn} ${listeningAction === action ? styles.btnListening : styles.btnDefault
+                }`}
               onClick={() => setListeningAction(action)}
             >
               {listeningAction === action ? 'Нажмите клавишу...' : keybinds[action].join(', ')}
