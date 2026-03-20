@@ -1,8 +1,9 @@
 import { Vector3 } from 'three';
 import type { WarriorAnimation } from '@game/shared';
-import { BASE_ANIMATIONS, type ClassConfig } from '@/classesConfig';
+import { type ClassConfig } from '@/classesConfig';
 import { ECS } from '@/ecs';
 import { socket } from '@/socket';
+import { BASE_ANIMATIONS } from '@/baseAnimations';
 
 export const warriorConfig: ClassConfig<WarriorAnimation> = {
   animations: {
