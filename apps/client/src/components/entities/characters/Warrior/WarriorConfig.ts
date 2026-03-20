@@ -10,6 +10,7 @@ export const warriorConfig: ClassConfig<WarriorAnimation> = {
     ...BASE_ANIMATIONS,
     Sword_Attack: { loop: false, speed: 1, fade: 0.05 },
     Sword_Attack2: { loop: false, speed: 0.9, fade: 0.05 },
+    Run_Weapon: { loop: true, speed: 1, fade: 0.2 },
   },
   locomotion: {
     idle: 'Idle',
@@ -73,7 +74,7 @@ export const warriorConfig: ClassConfig<WarriorAnimation> = {
       id: 'skill1',
       name: 'Heavy Cleave',
       icon: '⚔️', // Эмодзи-заглушка, заменишь потом в SkillBar
-      cooldown: 2, // 8 секунд перезарядки
+      cooldown: 8, // 8 секунд перезарядки
       onUse: (player) => {
         player.currentAnimation = 'Sword_Attack2';
         player.actionTimer = 1.0; // Игрок замирает на 1 секунду!

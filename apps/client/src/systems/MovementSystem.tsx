@@ -6,6 +6,7 @@ import { ECS } from '@/ecs';
 import { socket } from '@/socket';
 import { CLASSES_CONFIG } from '@/classesConfig';
 import { useUIStore } from '@/store';
+import type { AnyAnimation } from '@game/shared';
 
 // === 1. ГЕЙМПЛЕЙНЫЕ КОНСТАНТЫ ===
 // Легко балансировать игру из одного места
@@ -18,6 +19,7 @@ const CONFIG = {
   GROUNDED_FRAMES_MIN: 3, // Сколько кадров нужно быть на земле, чтобы разрешить прыжок
   NETWORK_SYNC_POS_TOLERANCE: 0.001,
   NETWORK_SYNC_ROT_TOLERANCE: 0.01,
+  FORWARD_JUMP_FORCE: 10
 };
 
 // === 2. ГЛОБАЛЬНЫЕ ВЕКТОРЫ (Оптимизация памяти) ===
@@ -166,28 +168,66 @@ export const MovementSystem = () => {
       player.threeObject.quaternion.slerp(targetQuaternion, delta * CONFIG.ROTATION_SPEED_MOVING);
     }
 
-    // Движение вперед
+    // === 1. УМНОЕ ДВИЖЕНИЕ (С сохранением инерции в воздухе) ===
     direction.normalize().multiplyScalar(currentSpeed);
-    body.setLinvel({ x: direction.x, y: currentVelocity.y, z: direction.z }, true);
 
-    // Прыжок
+    if (isGrounded) {
+      // НА ЗЕМЛЕ: Жесткое управление. Отпустил кнопку - сразу остановился.
+      body.setLinvel({ x: direction.x, y: currentVelocity.y, z: direction.z }, true);
+    } else {
+      // В ВОЗДУХЕ: Сохраняем инерцию (momentum) от прыжка!
+      // Даем игроку легкий "air control" (возможность чуть подруливать WASD в полете)
+      const airControl = 0.05; // Насколько сильно WASD влияет в воздухе (0.05 = слабо, 0.5 = сильно)
+
+      // Плавно смешиваем текущую скорость полета с тем, что нажимает игрок
+      const newX = currentVelocity.x + (direction.x - currentVelocity.x) * airControl;
+      const newZ = currentVelocity.z + (direction.z - currentVelocity.z) * airControl;
+
+      body.setLinvel({ x: newX, y: currentVelocity.y, z: newZ }, true);
+    }
+
+    // === 2. ПРЫЖОК С ИМПУЛЬСОМ ВПЕРЕД ===
     if (keys.jump && isGrounded && !isActionLocked) {
-      body.applyImpulse({ x: 0, y: CONFIG.JUMP_FORCE, z: 0 }, true);
+      // Узнаем, куда сейчас смотрит моделька игрока (её локальная ось Z)
+      const forwardDir = new Vector3(0, 0, 1)
+        .applyQuaternion(player.threeObject.quaternion)
+        .normalize();
+
+      // Применяем импульс: толкаем вверх (JUMP_FORCE) и одновременно вперед (FORWARD_JUMP_FORCE)
+      body.applyImpulse({
+        x: forwardDir.x * CONFIG.FORWARD_JUMP_FORCE,
+        y: CONFIG.JUMP_FORCE,
+        z: forwardDir.z * CONFIG.FORWARD_JUMP_FORCE
+      }, true);
+
       groundedFrames.current = 0;
+
+      // === ВОТ РЕШЕНИЕ ПРОБЛЕМЫ ЗАДЕРЖКИ ===
+      // Мы принудительно ставим анимацию airborne, не дожидаясь проверок физики в конце кадра!
+      const classLogic = CLASSES_CONFIG[player.classType!];
+      if (classLogic) {
+        // Кастим as AnyAnimation, чтобы TypeScript не ругался на строгие типы
+        player.currentAnimation = classLogic.locomotion.airborne as AnyAnimation;
+      }
+      // ===================================
     }
 
     const isAirborne = !isGrounded && groundedFrames.current === 0;
 
     // --- Д. АНИМАЦИИ ---
     if (!isActionLocked && !player.isAiming && player.classType) {
-      // Достаем конфиг текущего класса
       const classLogic = CLASSES_CONFIG[player.classType];
 
       if (classLogic) {
-        // Динамически берем названия анимаций из конфига!
-        player.currentAnimation = isAirborne
-          ? classLogic.locomotion.airborne
-          : (isMoving ? classLogic.locomotion.run : classLogic.locomotion.idle);
+        if (groundedFrames.current > 0) {
+          // МЫ СТОИМ НА ЗЕМЛЕ: Включаем обычный Run или Idle
+          player.currentAnimation = isMoving
+            ? classLogic.locomotion.run as AnyAnimation
+            : classLogic.locomotion.idle as AnyAnimation;
+        } else if (isAirborne) {
+          // МЫ УЖЕ ДАВНО В ВОЗДУХЕ (прошлиGROUNDED_FRAMES_MIN): Включаем кувырок по физике
+          player.currentAnimation = classLogic.locomotion.airborne as AnyAnimation;
+        }
       }
     }
 
