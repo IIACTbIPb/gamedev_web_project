@@ -35,12 +35,15 @@ const CONFIG = {
 
 const localPlayers = ECS.world.with('rigidBody', 'isMe').where((e) => e.isMe === true);
 
+// === ГЛОБАЛЬНЫЕ ПЕРЕИСПОЛЬЗУЕМЫЕ ВЕКТОРЫ ===
+// Никаких new Vector3() внутри useFrame!
 const targetPosition = new Vector3();
 const previousTarget = new Vector3();
 const targetShift = new Vector3();
 const cameraRight = new Vector3();
 const rayOrigin = new Vector3();
 const rayDir = new Vector3();
+const tempDir = new Vector3();
 
 export const CameraFollowSystem = () => {
   const wasAiming = useRef(false);
@@ -84,8 +87,9 @@ export const CameraFollowSystem = () => {
       unclippedDist.current = MathUtils.clamp(unclippedDist.current, CONFIG.minDistance, CONFIG.maxDistance);
 
       // 2. === ВОССТАНОВЛЕНИЕ КАМЕРЫ ===
-      const currentDir = new Vector3().subVectors(camera.position, controls.target).normalize();
-      camera.position.copy(controls.target).add(currentDir.multiplyScalar(unclippedDist.current));
+      // ИСПОЛЬЗУЕМ tempDir вместо создания нового вектора
+      tempDir.subVectors(camera.position, controls.target).normalize();
+      camera.position.copy(controls.target).add(tempDir.multiplyScalar(unclippedDist.current));
 
       const playerPos = entity.rigidBody.translation();
 
@@ -127,8 +131,10 @@ export const CameraFollowSystem = () => {
       // --- РУЧНОЙ ЗУМ ПРИ ПРИЦЕЛИВАНИИ ---
       if (entity.isAiming) {
         const newDist = MathUtils.lerp(actualDist, CONFIG.aimDistance, delta * CONFIG.aimTransitionSpeed);
-        const dir = new Vector3().subVectors(camera.position, controls.target).normalize();
-        camera.position.copy(controls.target).add(dir.multiplyScalar(newDist));
+
+        // ИСПОЛЬЗУЕМ tempDir
+        tempDir.subVectors(camera.position, controls.target).normalize();
+        camera.position.copy(controls.target).add(tempDir.multiplyScalar(newDist));
 
         camera.fov = MathUtils.lerp(camera.fov, CONFIG.aimFov, delta * CONFIG.fovTransitionSpeed);
         controls.minPolarAngle = 0.1;
@@ -138,8 +144,10 @@ export const CameraFollowSystem = () => {
       } else {
         if (isRestoring.current) {
           const newDist = MathUtils.lerp(actualDist, preAimDistance.current, delta * CONFIG.restoreTransitionSpeed);
-          const dir = new Vector3().subVectors(camera.position, controls.target).normalize();
-          camera.position.copy(controls.target).add(dir.multiplyScalar(newDist));
+
+          // ИСПОЛЬЗУЕМ tempDir
+          tempDir.subVectors(camera.position, controls.target).normalize();
+          camera.position.copy(controls.target).add(tempDir.multiplyScalar(newDist));
 
           if (Math.abs(actualDist - preAimDistance.current) < 0.05) {
             isRestoring.current = false;

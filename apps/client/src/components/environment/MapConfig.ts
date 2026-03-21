@@ -34,6 +34,6 @@ export const LEVEL_01 = {
     { id: 'house_1', position: [-30, 0, -40], rotation: [0, 0.5, 0], scale: [2.5, 2.5, 2.5], wallColor: '#ffffff' },
     { id: 'house_2', position: [-40, 0, -25], rotation: [0, 1.5, 0], scale: [2, 2, 2], wallColor: '#ffcccc' }, // Слегка красный кирпич/дерево
     { id: 'house_3', position: [-10, 0, -40], rotation: [0, -0.5, 0], scale: [2, 2, 2], wallColor: '#ccffcc' }, // Зеленоватый оттенок
-    { id: 'house_4', position: [-15, 0, 20], rotation: [0, 3.2, 0], scale: [3, 3, 3], wallColor: '#f50404ff' }, // Зеленоватый оттенок
+    { id: 'house_4', position: [-15, 0, 20], rotation: [0, 3.2, 0], scale: [3, 3, 3], wallColor: '#f50404' }, // Зеленоватый оттенок
   ] as HouseData[],
 };

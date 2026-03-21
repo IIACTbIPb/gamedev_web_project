@@ -11,16 +11,18 @@ type GLTFResult = GLTF & {
   };
 };
 
-// Мы принимаем стандартные пропсы группы (position, rotation, scale)
+// Создаем fallback-материал ОДИН РАЗ глобально, чтобы не засорять память
+const fallbackMaterial = new THREE.MeshStandardMaterial({ color: 'gray' });
+
 export function WarriorStatue(props: JSX.IntrinsicElements['group']) {
   const { nodes } = useGLTF('/WarriorMetin.glb') as unknown as GLTFResult;
 
   return (
-    <RigidBody type="fixed" colliders="hull" collisionGroups={PhysicsGroups.DECORATION}>
+    <RigidBody type="fixed" colliders="cuboid" collisionGroups={PhysicsGroups.DECORATION}>
       <group {...props} dispose={null}>
         <mesh
           geometry={nodes.mesh_0.geometry}
-          material={nodes.mesh_0.material || new THREE.MeshStandardMaterial({ color: 'gray' })}
+          material={nodes.mesh_0.material || fallbackMaterial}
         />
       </group>
     </RigidBody>

@@ -5,10 +5,22 @@ import { ECS } from '@/ecs';
 import { socket } from '@/socket';
 import { BASE_ANIMATIONS } from '@/baseAnimations';
 
+// === ГЛОБАЛЬНЫЕ ВРЕМЕННЫЕ ВЕКТОРЫ И ИНСТРУМЕНТЫ ===
+// Один Raycaster на всю игру!
+const globalRaycaster = new Raycaster();
+const centerScreen = new Vector2(0, 0);
+const tempTargetPoint = new Vector3();
+const tempStartPos = new Vector3();
+const tempDirection = new Vector3();
+const tempCameraRight = new Vector3();
+const tempFlatDirection = new Vector3();
+const localX = new Vector3(1, 0, 0);
+const localY = new Vector3(0, 1, 0);
+
 export const rangerConfig: ClassConfig<RangerAnimation> = {
   animations: {
     ...BASE_ANIMATIONS,
-    Bow_Draw: { loop: false, speed: 1.5, fade: 0.1 }, // Анимация натяжения (остановится в конце)
+    Bow_Draw: { loop: false, speed: 1.5, fade: 0.1 },
     Bow_Shoot: { loop: false, speed: 2, fade: 0.05 },
   },
   locomotion: {
@@ -19,60 +31,53 @@ export const rangerConfig: ClassConfig<RangerAnimation> = {
   onPrimaryAttackStart: (player) => {
     player.isAiming = true;
     player.currentAnimation = 'Bow_Draw';
-    player.actionTimer = 999; // Блокируем движение, пока целимся!
+    player.actionTimer = 999;
 
-    // Бросаем ивент для интерфейса, чтобы показать прицел
     window.dispatchEvent(new Event('aimStart'));
   },
   onPrimaryAttackRelease: (player, camera) => {
-    if (!player.isAiming) return; // Защита от случайных отпусканий
+    if (!player.isAiming) return;
 
     player.isAiming = false;
     player.currentAnimation = 'Bow_Shoot';
-    player.actionTimer = 0.5; // Разблокируем движение через полсекунды
-    window.dispatchEvent(new Event('aimEnd')); // Прячем прицел
+    player.actionTimer = 0.5;
+    window.dispatchEvent(new Event('aimEnd'));
 
     if (player.rigidBody && player.threeObject) {
       const playerPos = player.rigidBody.translation();
 
-      // === ИСПРАВЛЕННЫЙ РЕЙКАСТИНГ (Идеальная точность) ===
-      const raycaster = new Raycaster();
-      raycaster.setFromCamera(new Vector2(0, 0), camera);
+      // === ИСПОЛЬЗУЕМ ГЛОБАЛЬНЫЙ RAYCASTER ===
+      globalRaycaster.setFromCamera(centerScreen, camera);
+      globalRaycaster.ray.at(25, tempTargetPoint);
 
-      const targetPoint = new Vector3();
-      // 1. Берем точку ровно по центру крестика на расстоянии 25 метров.
-      // (Убрали поиск пола, чтобы луч не ломался при прицеливании во врага)
-      raycaster.ray.at(25, targetPoint);
-
-      const startPos = new Vector3(playerPos.x, playerPos.y + 1.5, playerPos.z);
+      tempStartPos.set(playerPos.x, playerPos.y + 1.5, playerPos.z);
 
       // Истинное 3D-направление выстрела
-      const direction = new Vector3().subVectors(targetPoint, startPos).normalize();
+      tempDirection.subVectors(tempTargetPoint, tempStartPos).normalize();
 
       // Поворачиваем модельку
-      const targetAngle = Math.atan2(direction.x, direction.z);
-      player.threeObject.quaternion.setFromAxisAngle(new Vector3(0, 1, 0), targetAngle);
+      const targetAngle = Math.atan2(tempDirection.x, tempDirection.z);
+      player.threeObject.quaternion.setFromAxisAngle(localY, targetAngle);
 
       // 2. Получаем вектор "вправо" от камеры
-      const cameraRight = new Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
-      cameraRight.y = 0;
-      cameraRight.normalize();
+      tempCameraRight.copy(localX).applyQuaternion(camera.quaternion);
+      tempCameraRight.y = 0;
+      tempCameraRight.normalize();
 
-      const flatDirection = new Vector3(direction.x, 0, direction.z);
-      if (flatDirection.lengthSq() > 0.001) {
-        flatDirection.normalize();
+      tempFlatDirection.set(tempDirection.x, 0, tempDirection.z);
+      if (tempFlatDirection.lengthSq() > 0.001) {
+        tempFlatDirection.normalize();
       } else {
-        flatDirection.set(0, 0, 1);
+        tempFlatDirection.set(0, 0, 1);
       }
 
       const spawnDistance = 1.5;
 
-      // 3. СМЕЩАЕМ СПАВН ПРАВЕЕ (cameraRight.x * 0.5)
-      // Стрела появится ближе к линии взгляда камеры, убирая косой параллакс!
+      // 3. СМЕЩАЕМ СПАВН ПРАВЕЕ
       const spawnPos = {
-        x: playerPos.x + flatDirection.x * spawnDistance + cameraRight.x * 0.5,
+        x: playerPos.x + tempFlatDirection.x * spawnDistance + tempCameraRight.x * 0.5,
         y: playerPos.y + 1.4,
-        z: playerPos.z + flatDirection.z * spawnDistance + cameraRight.z * 0.5,
+        z: playerPos.z + tempFlatDirection.z * spawnDistance + tempCameraRight.z * 0.5,
       };
 
       const arrowSpeed = 45;
@@ -82,14 +87,14 @@ export const rangerConfig: ClassConfig<RangerAnimation> = {
         isProjectile: true,
         position: spawnPos,
         velocity: {
-          x: direction.x * arrowSpeed,
-          y: direction.y * arrowSpeed,
-          z: direction.z * arrowSpeed,
+          x: tempDirection.x * arrowSpeed,
+          y: tempDirection.y * arrowSpeed,
+          z: tempDirection.z * arrowSpeed,
         },
         lifeTime: 8,
       };
 
-      ECS.world.add(arrowData); // <-- Используем ECS.world
+      ECS.world.add(arrowData);
       socket.emit('shoot', arrowData);
     }
   },
@@ -105,19 +110,13 @@ export const rangerConfig: ClassConfig<RangerAnimation> = {
 
         // === МАГИЯ ФИЗИКИ: ПОДБРАСЫВАЕМ ВВЕРХ ===
         if (player.rigidBody) {
-          // Сила импульса (8 — это примерное значение, как у прыжка.
-          // Попробуй значения от 5 до 12, чтобы найти идеальный баланс)
+          // Это простой JS-объект, Rapier принимает его напрямую, new Vector3() тут не нужен!
           const upwardImpulse = { x: 0, y: 8, z: 0 };
-
-          // Применяем импульс. Второй аргумент true — "wake up" тела, если оно спало.
           player.rigidBody.applyImpulse(upwardImpulse, true);
         }
-        // ===========================================
 
         player.speedBuffTimer = 10;
         player.speed = 13;
-        // Опционально: можно запустить легкую анимацию Roll или просто оставить бег
-        // При желании здесь же можно заспавнить эффект пыли из-под ног!
       }
     }
   ]

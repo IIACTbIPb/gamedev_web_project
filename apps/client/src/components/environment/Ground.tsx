@@ -25,10 +25,10 @@ export const Ground = () => {
     console.log("%cСкопируй это в MapConfig.ts:", "color: #00ff00; font-weight: bold; font-size: 14px;");
     console.log(codeSnippet);
 
-    // Бонус: можно даже автоматически копировать в буфер обмена!
-    navigator.clipboard.writeText(codeSnippet).then(() => {
-      console.log("✅ Скопировано в буфер обмена!");
-    });
+    // // Бонус: можно даже автоматически копировать в буфер обмена!
+    // navigator.clipboard.writeText(codeSnippet).then(() => {
+    //   console.log("✅ Скопировано в буфер обмена!");
+    // });
   };
 
   return (

@@ -4,6 +4,7 @@ import { Instances, Instance, useGLTF } from '@react-three/drei';
 import type { GLTF } from 'three-stdlib';
 import { LEVEL_01, type TreeData } from './MapConfig';
 import { PhysicsGroups } from '@/config/PhysicsGroups';
+import { useMemo } from 'react';
 
 // === ТИПЫ ИЗ ТВОЕЙ МОДЕЛИ ===
 type GLTFResult = GLTF & {
@@ -25,13 +26,15 @@ export const Forest = () => {
 
   if (treeData.length === 0) return null;
 
-  const instances = treeData.map((tree) => ({
-    key: `physics_${tree.id}`,
-    position: tree.position,
-    rotation: tree.rotation,
-    scale: tree.scale,
-    collisionGroups: PhysicsGroups.DECORATION,
-  }));
+  const instances = useMemo(() => {
+    return treeData.map((tree) => ({
+      key: `physics_${tree.id}`,
+      position: tree.position,
+      rotation: tree.rotation,
+      scale: tree.scale,
+      collisionGroups: PhysicsGroups.DECORATION,
+    }));
+  }, [treeData]);
 
   return (
     <group>

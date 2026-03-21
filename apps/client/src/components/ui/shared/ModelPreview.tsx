@@ -1,6 +1,7 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useMemo } from 'react';
 import { useGLTF, useAnimations } from '@react-three/drei';
-import { useFrame } from '@react-three/fiber'; // <-- ДОБАВИЛИ ИМПОРТ
+import { useFrame } from '@react-three/fiber';
+import { SkeletonUtils } from 'three-stdlib'; // <-- ДОБАВИЛИ УТИЛИТУ КЛОНИРОВАНИЯ
 import * as THREE from 'three';
 
 interface ModelPreviewProps {
@@ -11,32 +12,43 @@ interface ModelPreviewProps {
 
 export const ModelPreview = ({ url, scale = 1, position = [0, 0, 0] }: ModelPreviewProps) => {
   const group = useRef<THREE.Group>(null);
+
   const { scene, animations } = useGLTF(url);
+
+  // === ОПТИМИЗАЦИЯ 1: БЕЗОПАСНОЕ КЛОНИРОВАНИЕ ===
+  // Теперь ты можешь отрендерить хоть 100 одинаковых превьюшек, и они не сломаются
+  const clone = useMemo(() => SkeletonUtils.clone(scene), [scene]);
+
   const { actions } = useAnimations(animations, group);
 
   useEffect(() => {
-    // Включаем анимацию
-    const idleAction = actions['Idle'];
+    // Ищем Idle, а если его нет (другое название), берем первую попавшуюся анимацию
+    const idleAction = actions['Idle'] || Object.values(actions)[0];
+
     if (idleAction) {
       idleAction.reset().fadeIn(0.2).play();
     }
-    // Нам больше не нужно возвращать функцию очистки для отмены анимации, 
-    // R3F сделает всё сам!
+
+    // === ОПТИМИЗАЦИЯ 2: ЧИСТАЯ ПАМЯТЬ ===
+    // Если url изменится (игрок переключил перса), плавно гасим старую анимацию
+    return () => {
+      if (idleAction) {
+        idleAction.fadeOut(0.2);
+      }
+    };
   }, [actions]);
 
-  // === ПРАВИЛЬНОЕ ВРАЩЕНИЕ В R3F ===
+  // === ПЛАВНОЕ ВРАЩЕНИЕ ===
   useFrame((_state, delta) => {
     if (group.current) {
-      // delta - это время между кадрами. 
-      // Умножая на скорость (например, 0.3), мы получаем плавное вращение
-      // независимое от FPS монитора!
       group.current.rotation.y += delta * 0.3;
     }
   });
 
   return (
-    <group ref={group} scale={scale} position={position}>
-      <primitive object={scene} castShadow receiveShadow />
+    <group ref={group} scale={scale} position={position} dispose={null}>
+      {/* Используем клон вместо оригинальной scene */}
+      <primitive object={clone} castShadow receiveShadow />
     </group>
   );
 };

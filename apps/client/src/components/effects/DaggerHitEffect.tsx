@@ -1,18 +1,35 @@
 import * as THREE from 'three';
 import React, { useRef, useMemo, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Instances, Instance } from '@react-three/drei';
 
 // Количество частиц в одном всплеске
 const PARTICLE_COUNT = 150;
 const LIGHTNING_COUNT = 5;
 
-// === ГЛОБАЛЬНЫЕ ВРЕМЕННЫЕ ОБЪЕКТЫ (ОПТИМИЗАЦИЯ ПАМЯТИ) ===
-// Мы создаем их один раз и переиспользуем для всех вычислений
+// === ГЛОБАЛЬНЫЕ ВРЕМЕННЫЕ ОБЪЕКТЫ ===
 const tempMatrix = new THREE.Matrix4();
 const tempPos = new THREE.Vector3();
 const tempScale = new THREE.Vector3();
 const tempQuat = new THREE.Quaternion();
+
+// === ГЛОБАЛЬНЫЕ ГЕОМЕТРИИ И МАТЕРИАЛЫ (ОПТИМИЗАЦИЯ ПАМЯТИ) ===
+// Создаются один раз при загрузке игры, а не при каждом ударе кинжалом!
+const particleGeometry = new THREE.SphereGeometry(1, 8, 8);
+const particleMaterial = new THREE.MeshBasicMaterial({
+  color: "#ff0000",
+  transparent: true,
+  depthWrite: false,
+  blending: THREE.AdditiveBlending
+});
+
+const lightningGeometry = new THREE.CylinderGeometry(1, 1, 1, 4);
+const lightningMaterial = new THREE.MeshBasicMaterial({
+  color: "#ffbb00",
+  transparent: true,
+  opacity: 0.8,
+  depthWrite: false,
+  blending: THREE.AdditiveBlending
+});
 
 class ParticleData {
   velocity: THREE.Vector3;
@@ -90,22 +107,17 @@ export const DaggerHitEffect: React.FC<DaggerHitEffectProps> = ({ position, onFi
       return;
     }
 
-    // === ОПТИМИЗИРОВАННЫЙ ЦИКЛ ЧАСТИЦ ===
     if (instancesApi.current) {
       for (let i = 0; i < particles.length; i++) {
         const p = particles[i];
         p.update(delta);
 
-        // Сбрасываем временные переменные
         tempPos.set(0, 0, 0);
         tempQuat.identity();
 
         const progress = 1 - Math.max(0, p.life / p.maxLife);
         const easeOut = 1 - Math.pow(1 - progress, 3);
 
-        // Избегаем .clone()! 
-        // Вместо создания нового вектора, мы копируем значения из velocity
-        // во временный вектор, умножаем и прибавляем.
         tempPos.copy(p.velocity).multiplyScalar(easeOut);
 
         let currentScale = 0;
@@ -122,7 +134,6 @@ export const DaggerHitEffect: React.FC<DaggerHitEffectProps> = ({ position, onFi
       instancesApi.current.instanceMatrix.needsUpdate = true;
     }
 
-    // === ОПТИМИЗИРОВАННЫЙ ЦИКЛ МОЛНИЙ ===
     if (lightningApi.current) {
       for (let i = 0; i < lightnings.length; i++) {
         const l = lightnings[i];
@@ -139,7 +150,7 @@ export const DaggerHitEffect: React.FC<DaggerHitEffectProps> = ({ position, onFi
           tempMatrix.compose(tempPos, tempQuat, tempScale);
         } else {
           tempScale.set(0, 0, 0);
-          tempMatrix.compose(tempPos, tempQuat, tempScale); // tempPos is still 0,0,0 from previous loop or initialization
+          tempMatrix.compose(tempPos, tempQuat, tempScale);
         }
         lightningApi.current.setMatrixAt(i, tempMatrix);
       }
@@ -159,30 +170,16 @@ export const DaggerHitEffect: React.FC<DaggerHitEffectProps> = ({ position, onFi
     <group position={position}>
       <pointLight ref={lightRef} color="#ff3300" distance={10} decay={2} intensity={0} />
 
-      <Instances range={PARTICLE_COUNT} ref={instancesApi}>
-        <sphereGeometry args={[1, 8, 8]} />
-        {/* Используем meshBasicMaterial для искр, это дешевле чем Standard, так как им не нужен свет */}
-        <meshBasicMaterial
-          color="#ff0000"
-          transparent
-          depthWrite={false}
-          blending={THREE.AdditiveBlending}
-        />
-        {particles.map((_, i) => <Instance key={i} />)}
-      </Instances>
+      {/* Передаем наши глобальные константы прямо в args */}
+      <instancedMesh
+        ref={instancesApi}
+        args={[particleGeometry, particleMaterial, PARTICLE_COUNT]}
+      />
 
-      <Instances range={LIGHTNING_COUNT} ref={lightningApi}>
-        <cylinderGeometry args={[1, 1, 1, 4]} />
-        {/* Аналогично, используем BasicMaterial для эффектов свечения */}
-        <meshBasicMaterial
-          color="#ffbb00"
-          transparent
-          opacity={0.8}
-          depthWrite={false}
-          blending={THREE.AdditiveBlending}
-        />
-        {lightnings.map((_, i) => <Instance key={`l_${i}`} />)}
-      </Instances>
+      <instancedMesh
+        ref={lightningApi}
+        args={[lightningGeometry, lightningMaterial, LIGHTNING_COUNT]}
+      />
     </group>
   );
 };

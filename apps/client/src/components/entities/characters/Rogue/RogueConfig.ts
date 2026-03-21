@@ -5,6 +5,13 @@ import { socket } from '@/socket';
 import { Vector3 } from 'three';
 import { BASE_ANIMATIONS } from '@/baseAnimations';
 
+// === ГЛОБАЛЬНЫЕ ВРЕМЕННЫЕ ВЕКТОРЫ ===
+const tempForward = new Vector3();
+const tempPlayerVec = new Vector3();
+const tempEnemyVec = new Vector3();
+const tempDir = new Vector3();
+const tempSpawnPos = new Vector3();
+const localZ = new Vector3(0, 0, 1);
 
 export const rogueConfig: ClassConfig<RogueAnimation> = {
   animations: {
@@ -19,8 +26,7 @@ export const rogueConfig: ClassConfig<RogueAnimation> = {
   },
   onPrimaryAttackStart: (player) => {
     player.currentAnimation = 'Dagger_Attack';
-    // === ДЕЛАЕМ АТАКУ БЫСТРОЙ ===
-    player.actionTimer = 0.4; // Блокируем новые атаки всего на 0.35 сек
+    player.actionTimer = 0.4;
 
     setTimeout(() => {
       if (!player.rigidBody || !player.threeObject || (player.hp !== undefined && player.hp <= 0))
@@ -28,8 +34,10 @@ export const rogueConfig: ClassConfig<RogueAnimation> = {
 
       const playerPos = player.rigidBody.translation();
       const playerRot = player.threeObject.quaternion;
-      const forward = new Vector3(0, 0, 1).applyQuaternion(playerRot).normalize();
-      const playerVec = new Vector3(playerPos.x, playerPos.y, playerPos.z);
+
+      // ИСПОЛЬЗУЕМ ГЛОБАЛЬНЫЕ ВЕКТОРЫ
+      tempForward.copy(localZ).applyQuaternion(playerRot).normalize();
+      tempPlayerVec.set(playerPos.x, playerPos.y, playerPos.z);
 
       const enemies = ECS.world
         .with('rigidBody', 'id', 'hp')
@@ -37,24 +45,23 @@ export const rogueConfig: ClassConfig<RogueAnimation> = {
 
       for (const enemy of enemies) {
         const enemyPos = enemy.rigidBody.translation();
-        const enemyVec = new Vector3(enemyPos.x, enemyPos.y, enemyPos.z);
-        const distance = playerVec.distanceTo(enemyVec);
+        tempEnemyVec.set(enemyPos.x, enemyPos.y, enemyPos.z);
+        const distance = tempPlayerVec.distanceTo(tempEnemyVec);
 
-        // У кинжала радиус поражения чуть меньше, чем у меча (2.5 метра)
         if (distance < 2.5) {
-          const dirToEnemy = new Vector3().subVectors(enemyVec, playerVec).normalize();
-          const angle = forward.angleTo(dirToEnemy);
+          tempDir.subVectors(tempEnemyVec, tempPlayerVec).normalize();
+          const angle = tempForward.angleTo(tempDir);
 
           if (angle < Math.PI / 3) {
             socket.emit('meleeHit', {
               targetId: enemy.id,
-              damage: 15, // Урон меньше
+              damage: 15,
               shooterId: player.id,
             });
           }
         }
       }
-    }, 150); // Задержка всего 150мс (очень быстрый удар)
+    }, 150);
   },
   skills: [
     {
@@ -64,7 +71,7 @@ export const rogueConfig: ClassConfig<RogueAnimation> = {
       cooldown: 15,
       onUse: (player) => {
         player.currentAnimation = 'Dagger_Attack2';
-        player.actionTimer = 0.8; // Этот удар долгий и мощный
+        player.actionTimer = 0.8;
 
         setTimeout(() => {
           if (!player.rigidBody || !player.threeObject || (player.hp !== undefined && player.hp <= 0))
@@ -73,27 +80,24 @@ export const rogueConfig: ClassConfig<RogueAnimation> = {
           player.isInvisible = false;
           const playerPos = player.rigidBody.translation();
           const playerRot = player.threeObject.quaternion;
-          const forward = new Vector3(0, 0, 1).applyQuaternion(playerRot).normalize();
-          const playerVec = new Vector3(playerPos.x, playerPos.y, playerPos.z);
 
-          // Спавним эффект Даггера ПРЯМО перед персонажем
-          const spawnPos = new Vector3(playerPos.x, playerPos.y + 1, playerPos.z).add(
-            forward.clone().multiplyScalar(1.5),
-          );
+          tempForward.copy(localZ).applyQuaternion(playerRot).normalize();
+          tempPlayerVec.set(playerPos.x, playerPos.y, playerPos.z);
+
+          // ИЗБАВЛЯЕМСЯ ОТ forward.clone()
+          tempSpawnPos.copy(tempForward).multiplyScalar(1.5).add(tempPlayerVec);
+          tempSpawnPos.y += 1;
 
           const effectData = {
             id: Math.random().toString(36).substring(2, 9),
             isEffect: true,
             effectType: 'DaggerHit',
-            position: { x: spawnPos.x, y: spawnPos.y, z: spawnPos.z },
+            position: { x: tempSpawnPos.x, y: tempSpawnPos.y, z: tempSpawnPos.z },
             rotation: { x: playerRot.x, y: playerRot.y, z: playerRot.z, w: playerRot.w },
           };
 
-          // Спавним у себя для нулевой задержки...
           ECS.world.add(effectData);
-          // ...и отправляем на сервер, чтобы увидели остальные
           socket.emit('spawnEffect', effectData);
-
 
           const enemies = ECS.world
             .with('rigidBody', 'id', 'hp')
@@ -101,25 +105,23 @@ export const rogueConfig: ClassConfig<RogueAnimation> = {
 
           for (const enemy of enemies) {
             const enemyPos = enemy.rigidBody.translation();
-            const enemyVec = new Vector3(enemyPos.x, enemyPos.y, enemyPos.z);
-            const distance = playerVec.distanceTo(enemyVec);
+            tempEnemyVec.set(enemyPos.x, enemyPos.y, enemyPos.z);
+            const distance = tempPlayerVec.distanceTo(tempEnemyVec);
 
-            // Суперудар бьет чуть дальше (3 метра)
             if (distance < 3.0) {
-              const dirToEnemy = new Vector3().subVectors(enemyVec, playerVec).normalize();
-              const angle = forward.angleTo(dirToEnemy);
+              tempDir.subVectors(tempEnemyVec, tempPlayerVec).normalize();
+              const angle = tempForward.angleTo(tempDir);
 
-              // Конус поражения меньше (бьет точечно перед собой)
               if (angle < Math.PI / 4) {
                 socket.emit('meleeHit', {
                   targetId: enemy.id,
-                  damage: 55, // Огромный урон!
+                  damage: 55,
                   shooterId: player.id,
                 });
               }
             }
           }
-        }, 350); // Задержка удара
+        }, 350);
       }
     },
     {
@@ -129,7 +131,6 @@ export const rogueConfig: ClassConfig<RogueAnimation> = {
       cooldown: 30,
       onUse: (player) => {
         player.isInvisible = true;
-        // Отключаем невидимость через 10 секунд
         setTimeout(() => {
           if (player) {
             player.isInvisible = false;

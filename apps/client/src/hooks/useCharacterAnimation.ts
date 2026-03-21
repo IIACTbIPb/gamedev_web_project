@@ -14,6 +14,10 @@ export const useCharacterAnimation = (
   const currentAnim = useRef<string>(defaultAnim);
   const classAnimations = CLASSES_CONFIG[classType].animations;
 
+  // === ИСПРАВЛЕНИЕ ===
+  // Храним ссылку на сущность тут. Изначально null.
+  const entityRef = useRef<any>(null);
+
   useEffect(() => {
     const entries = Object.entries(classAnimations) as [AnyAnimation, AnimSettings][];
     entries.forEach(([animName, config]) => {
@@ -34,7 +38,16 @@ export const useCharacterAnimation = (
   }, [actions, classAnimations, defaultAnim]);
 
   useFrame(() => {
-    const entity = ECS.world.where((e) => e.id === id).first;
+    // === ЛЕНИВЫЙ ПОИСК (Lazy Caching) ===
+    // Если мы еще не нашли сущность, ищем её. 
+    // Это сработает на 1-м или 2-м кадре, когда ECS точно собрал игрока.
+    if (!entityRef.current) {
+      entityRef.current = ECS.world.where((e) => e.id === id).first;
+    }
+
+    const entity = entityRef.current;
+
+    // Если всё ещё не нашли (или анимация не задана) - просто ждем
     if (!entity || !entity.currentAnimation) return;
 
     const nextAnim = entity.currentAnimation as AnyAnimation;

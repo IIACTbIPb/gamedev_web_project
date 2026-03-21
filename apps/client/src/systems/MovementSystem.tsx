@@ -23,12 +23,14 @@ const CONFIG = {
 };
 
 // === 2. ГЛОБАЛЬНЫЕ ВЕКТОРЫ (Оптимизация памяти) ===
+// Никаких new Vector3() внутри useFrame!
 const direction = new Vector3();
 const frontVector = new Vector3();
 const sideVector = new Vector3();
 const upVector = new Vector3(0, 1, 0);
 const targetQuaternion = new Quaternion();
 const tempPos = new Vector3();
+const forwardDir = new Vector3(0, 0, 1); // <-- Вынесли вектор направления для прыжка
 
 const localPlayers = ECS.world
   .with('rigidBody', 'isMe', 'threeObject')
@@ -188,8 +190,8 @@ export const MovementSystem = () => {
 
     // === 2. ПРЫЖОК С ИМПУЛЬСОМ ВПЕРЕД ===
     if (keys.jump && isGrounded && !isActionLocked) {
-      // Узнаем, куда сейчас смотрит моделька игрока (её локальная ось Z)
-      const forwardDir = new Vector3(0, 0, 1)
+      // ИСПОЛЬЗУЕМ ГЛОБАЛЬНЫЙ ВЕКТОР (Оптимизация: переиспользуем forwardDir)
+      forwardDir.set(0, 0, 1)
         .applyQuaternion(player.threeObject.quaternion)
         .normalize();
 
