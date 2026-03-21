@@ -1,0 +1,6 @@
+node_modules
+apps/server/dist
+apps/client/dist
+packages/shared/dist
+.git
+.turbo

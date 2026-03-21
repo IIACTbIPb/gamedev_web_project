@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  # Наш бэкенд на NestJS
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile # Использует файл, который мы создали ранее
+    ports:
+      - "3001:3001"
+    restart: unless-stopped
+    networks:
+      - game-network
+
+  # Наш фронтенд на Nginx
+  client:
+    build:
+      context: .
+      dockerfile: Dockerfile.client
+    ports:
+      - "80:80" # Будет доступен просто по IP твоего сервера
+    restart: unless-stopped
+    depends_on:
+      - server # Ждет, пока запустится бэкенд
+    networks:
+      - game-network
+
+networks:
+  game-network:
+    driver: bridge

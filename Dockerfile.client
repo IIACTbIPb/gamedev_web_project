@@ -1,0 +1,30 @@
+# ЭТАП 1: Сборка фронтенда
+FROM node:22-alpine AS builder
+
+WORKDIR /app
+
+COPY package*.json turbo.json ./
+COPY apps/client/package*.json ./apps/client/
+COPY packages/shared/package*.json ./packages/shared/
+
+RUN npm install
+
+# Копируем исходники (теперь нам нужен клиент)
+COPY apps/client ./apps/client
+COPY packages/shared ./packages/shared
+
+# Собираем клиент (Vite превратит его в статику)
+RUN npx turbo run build --filter=client...
+
+# ЭТАП 2: Легкий Nginx сервер для раздачи игры
+FROM nginx:alpine
+
+# Копируем собранные файлы из первого этапа в папку Nginx
+COPY --from=builder /app/apps/client/dist /usr/share/nginx/html
+
+# Если у тебя есть React Router, эта строчка гарантирует, что при обновлении страницы не будет ошибки 404
+RUN echo 'server { listen 80; location / { root /usr/share/nginx/html; index index.html; try_files $uri $uri/ /index.html; } }' > /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]
