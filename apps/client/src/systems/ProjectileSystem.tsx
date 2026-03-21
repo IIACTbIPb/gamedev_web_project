@@ -113,7 +113,7 @@ export const ProjectileSystem = () => {
               arrowId: entity.id!,
               position: { x: hitX, y: hitY, z: hitZ },
               targetId: hitPlayerId,
-              damage: 25,
+              attackType: 'primary',
               shooterId: entity.ownerId,
             });
           } else {
@@ -121,6 +121,7 @@ export const ProjectileSystem = () => {
             socket.emit('arrowHit', {
               arrowId: entity.id!,
               position: { x: hitX, y: hitY, z: hitZ },
+              attackType: 'primary',
             });
           }
 
@@ -144,6 +145,7 @@ export const ProjectileSystem = () => {
           socket.emit('arrowHit', {
             arrowId: entity.id!,
             position: { x: entity.position.x, y: 0, z: entity.position.z },
+            attackType: 'primary',
           });
         }
       }

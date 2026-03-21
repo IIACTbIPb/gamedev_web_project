@@ -1,5 +1,5 @@
 import { Raycaster, Vector2, Vector3 } from 'three';
-import type { RangerAnimation } from '@game/shared';
+import { CLASS_BALANCE, type ProjectilePayload, type RangerAnimation } from '@game/shared';
 import { type ClassConfig } from '@/classesConfig';
 import { ECS } from '@/ecs';
 import { socket } from '@/socket';
@@ -16,6 +16,8 @@ const tempCameraRight = new Vector3();
 const tempFlatDirection = new Vector3();
 const localX = new Vector3(1, 0, 0);
 const localY = new Vector3(0, 1, 0);
+
+const RANGER_STATS = CLASS_BALANCE.Ranger;
 
 export const rangerConfig: ClassConfig<RangerAnimation> = {
   animations: {
@@ -81,7 +83,7 @@ export const rangerConfig: ClassConfig<RangerAnimation> = {
       };
 
       const arrowSpeed = 45;
-      const arrowData = {
+      const arrowData: ProjectilePayload = {
         id: Math.random().toString(36).substring(2, 9),
         ownerId: player.id,
         isProjectile: true,
@@ -92,6 +94,7 @@ export const rangerConfig: ClassConfig<RangerAnimation> = {
           z: tempDirection.z * arrowSpeed,
         },
         lifeTime: 8,
+        attackType: 'primary',
       };
 
       ECS.world.add(arrowData);
@@ -103,7 +106,7 @@ export const rangerConfig: ClassConfig<RangerAnimation> = {
       id: 'skill1',
       name: 'Sprint',
       icon: '💨',
-      cooldown: 15,
+      cooldown: RANGER_STATS.skill1.cooldown,
       onUse: (player) => {
         player.currentAnimation = 'Idle_Attacking'
         player.actionTimer = 0.5;
@@ -115,8 +118,8 @@ export const rangerConfig: ClassConfig<RangerAnimation> = {
           player.rigidBody.applyImpulse(upwardImpulse, true);
         }
 
-        player.speedBuffTimer = 10;
-        player.speed = 13;
+        player.speedBuffTimer = RANGER_STATS.skill1.duration;
+        player.speed = RANGER_STATS.skill1?.speedBuff || RANGER_STATS.baseSpeed;
       }
     }
   ]

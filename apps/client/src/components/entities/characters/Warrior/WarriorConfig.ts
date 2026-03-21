@@ -1,5 +1,5 @@
 import { Vector3 } from 'three';
-import type { WarriorAnimation } from '@game/shared';
+import { CLASS_BALANCE, type WarriorAnimation } from '@game/shared';
 import { type ClassConfig } from '@/classesConfig';
 import { ECS } from '@/ecs';
 import { socket } from '@/socket';
@@ -12,6 +12,8 @@ const tempPlayerVec = new Vector3();
 const tempEnemyVec = new Vector3();
 const tempDir = new Vector3();
 const localZ = new Vector3(0, 0, 1);
+
+const WARRIOR_STATS = CLASS_BALANCE.Warrior;
 
 export const warriorConfig: ClassConfig<WarriorAnimation> = {
   animations: {
@@ -60,7 +62,7 @@ export const warriorConfig: ClassConfig<WarriorAnimation> = {
           if (angle < Math.PI / 3) {
             socket.emit('meleeHit', {
               targetId: enemy.id,
-              damage: 35,
+              attackType: 'primary',
               shooterId: player.id,
             });
             // break; // Раскомментируй, если нужен удар только по одной цели
@@ -74,7 +76,7 @@ export const warriorConfig: ClassConfig<WarriorAnimation> = {
       id: 'skill1',
       name: 'Heavy Cleave',
       icon: '⚔️',
-      cooldown: 8,
+      cooldown: WARRIOR_STATS.skill1.cooldown,
       onUse: (player) => {
         player.currentAnimation = 'Sword_Attack2';
         player.actionTimer = 1.0;
@@ -117,7 +119,7 @@ export const warriorConfig: ClassConfig<WarriorAnimation> = {
               if (angle < Math.PI / 2) {
                 socket.emit('meleeHit', {
                   targetId: enemy.id,
-                  damage: 60,
+                  attackType: 'skill1',
                   shooterId: player.id,
                 });
               }

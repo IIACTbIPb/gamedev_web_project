@@ -1,4 +1,4 @@
-import type { RogueAnimation } from '@game/shared';
+import { CLASS_BALANCE, type RogueAnimation } from '@game/shared';
 import { type ClassConfig } from '@/classesConfig';
 import { ECS } from '@/ecs';
 import { socket } from '@/socket';
@@ -12,6 +12,8 @@ const tempEnemyVec = new Vector3();
 const tempDir = new Vector3();
 const tempSpawnPos = new Vector3();
 const localZ = new Vector3(0, 0, 1);
+
+const ROGUE_STATS = CLASS_BALANCE.Rogue;
 
 export const rogueConfig: ClassConfig<RogueAnimation> = {
   animations: {
@@ -55,7 +57,7 @@ export const rogueConfig: ClassConfig<RogueAnimation> = {
           if (angle < Math.PI / 3) {
             socket.emit('meleeHit', {
               targetId: enemy.id,
-              damage: 15,
+              attackType: 'primary',
               shooterId: player.id,
             });
           }
@@ -68,7 +70,7 @@ export const rogueConfig: ClassConfig<RogueAnimation> = {
       id: 'skill1',
       name: 'Dagger Strike',
       icon: '💥',
-      cooldown: 15,
+      cooldown: ROGUE_STATS.skill1.cooldown,
       onUse: (player) => {
         player.currentAnimation = 'Dagger_Attack2';
         player.actionTimer = 0.8;
@@ -115,7 +117,7 @@ export const rogueConfig: ClassConfig<RogueAnimation> = {
               if (angle < Math.PI / 4) {
                 socket.emit('meleeHit', {
                   targetId: enemy.id,
-                  damage: 55,
+                  attackType: 'skill1',
                   shooterId: player.id,
                 });
               }
@@ -128,14 +130,14 @@ export const rogueConfig: ClassConfig<RogueAnimation> = {
       id: 'skill2',
       name: 'Invisibility',
       icon: '👻',
-      cooldown: 30,
+      cooldown: ROGUE_STATS.skill2.cooldown,
       onUse: (player) => {
         player.isInvisible = true;
         setTimeout(() => {
           if (player) {
             player.isInvisible = false;
           }
-        }, 10000);
+        }, ROGUE_STATS.skill2.duration);
       }
     }
   ]

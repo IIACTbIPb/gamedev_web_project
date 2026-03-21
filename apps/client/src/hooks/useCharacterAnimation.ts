@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { ECS } from '@/ecs';
+import { ECS, type Entity } from '@/ecs';
 import { CLASSES_CONFIG } from '@/classesConfig';
 import type { AnimSettings, AnyAnimation, CharacterClass } from '@game/shared';
 
@@ -16,7 +16,7 @@ export const useCharacterAnimation = (
 
   // === ИСПРАВЛЕНИЕ ===
   // Храним ссылку на сущность тут. Изначально null.
-  const entityRef = useRef<any>(null);
+  const entityRef = useRef<Entity | null>(null);
 
   useEffect(() => {
     const entries = Object.entries(classAnimations) as [AnyAnimation, AnimSettings][];
@@ -42,7 +42,7 @@ export const useCharacterAnimation = (
     // Если мы еще не нашли сущность, ищем её. 
     // Это сработает на 1-м или 2-м кадре, когда ECS точно собрал игрока.
     if (!entityRef.current) {
-      entityRef.current = ECS.world.where((e) => e.id === id).first;
+      entityRef.current = ECS.world.where((e) => e.id === id).first || null;
     }
 
     const entity = entityRef.current;

@@ -21,6 +21,7 @@ export interface ProjectilePayload {
 	position: { x: number; y: number; z: number };
 	velocity: { x: number; y: number; z: number };
 	lifeTime: number;
+	attackType: 'primary' | 'skill1' | 'skill2';
 }
 
 export interface EffectPayload {
@@ -35,14 +36,14 @@ export interface ArrowHitPayload {
 	arrowId: string;
 	position: { x: number; y: number; z: number };
 	targetId?: string;
-	damage?: number;
 	shooterId?: string;
+	attackType: 'primary' | 'skill1' | 'skill2';
 }
 
 export interface MeleeHitPayload {
 	targetId: string;
-	damage: number;
 	shooterId?: string;
+	attackType: 'primary' | 'skill1' | 'skill2';
 }
 
 export interface HpChangedPayload {

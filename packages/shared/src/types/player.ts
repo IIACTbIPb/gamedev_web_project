@@ -56,3 +56,18 @@ export type AnyAnimation = WarriorAnimation | RangerAnimation | RogueAnimation;
 
 // AnimSettings тоже можно вынести сюда, если они нужны в разных местах
 export type AnimSettings = { loop: boolean; speed: number; fade: number };
+
+export interface SkillStats {
+  damage: number;
+  cooldown: number;
+  duration: number;
+  speedBuff?: number;
+}
+
+export interface ClassStats {
+  baseHp: number;
+  baseSpeed: number;
+  primaryDamage: number;
+  skill1: SkillStats;
+  skill2: SkillStats;
+}

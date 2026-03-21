@@ -1,14 +1,15 @@
 import { ECS } from "@/ecs";
 import { socket } from "@/socket";
 import { useUIStore } from "@/store";
+import type { ArrowHitPayload, EffectPayload, HpChangedPayload, PlayerDiedPayload, PlayerMovedPayload, PlayerRespawnedPayload, ProjectilePayload } from "@game/shared";
 import { useEffect } from "react";
 
 export const useGameSockets = () => {
   useEffect(() => {
-    const onPlayerShot = (arrowData: any) => ECS.world.add(arrowData);
-    const onEffectSpawned = (effectData: any) => ECS.world.add(effectData);
+    const onPlayerShot = (arrowData: ProjectilePayload) => ECS.world.add(arrowData);
+    const onEffectSpawned = (effectData: EffectPayload) => ECS.world.add(effectData);
 
-    const onPlayerMoved = ({ id, position, rotation, animation, isAiming, isInvisible, isSprinting }: any) => {
+    const onPlayerMoved = ({ id, position, rotation, animation, isAiming, isInvisible, isSprinting }: PlayerMovedPayload) => {
       const entity = ECS.world.where((e) => e.id === id).first;
       if (entity && entity.rigidBody && !entity.isMe) {
         entity.rigidBody.setNextKinematicTranslation(position);
@@ -22,7 +23,7 @@ export const useGameSockets = () => {
       }
     };
 
-    const onArrowHit = ({ arrowId, position }: any) => {
+    const onArrowHit = ({ arrowId, position }: ArrowHitPayload) => {
       const arrow = ECS.world.where((e) => e.id === arrowId).first;
       if (arrow && arrow.position && arrow.velocity) {
         arrow.position.x = position.x;
@@ -35,7 +36,7 @@ export const useGameSockets = () => {
       }
     };
 
-    const onPlayerHpChanged = ({ id, hp, maxHp }: any) => {
+    const onPlayerHpChanged = ({ id, hp, maxHp }: HpChangedPayload) => {
       const entity = ECS.world.where((e) => e.id === id).first;
       if (entity) {
         const oldHp = entity.hp !== undefined ? entity.hp : maxHp;
@@ -66,7 +67,7 @@ export const useGameSockets = () => {
       }
     };
 
-    const onPlayerDied = ({ victimId, killerId }: any) => {
+    const onPlayerDied = ({ victimId, killerId }: PlayerDiedPayload) => {
       const entity = ECS.world.where((e) => e.id === victimId).first;
       if (entity) {
         ECS.world.update(entity, { currentAnimation: 'Death' });
@@ -74,7 +75,7 @@ export const useGameSockets = () => {
       }
     };
 
-    const onPlayerRespawned = ({ id, position }: any) => {
+    const onPlayerRespawned = ({ id, position }: PlayerRespawnedPayload) => {
       const entity = ECS.world.where((e) => e.id === id).first;
       if (entity) {
         ECS.world.update(entity, { currentAnimation: 'Idle' });

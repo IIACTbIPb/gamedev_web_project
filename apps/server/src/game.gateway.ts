@@ -6,30 +6,63 @@ import {
   SubscribeMessage,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import type {
-  CharacterClass,
-  ClientToServerEvents,
-  GameState,
-  ServerToClientEvents,
-  MovePayload,
-  ProjectilePayload,
-  ArrowHitPayload,
-  MeleeHitPayload,
-  EffectPayload,
-  JoinGamePayload
+import {
+  type CharacterClass,
+  type ClientToServerEvents,
+  type GameState,
+  type ServerToClientEvents,
+  type MovePayload,
+  type ProjectilePayload,
+  type ArrowHitPayload,
+  type MeleeHitPayload,
+  type EffectPayload,
+  type JoinGamePayload,
+  CLASS_BALANCE
 } from '@game/shared';
 
-// Создаем удобный алиас для строго типизированного сокета клиента
 type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 
-// Настраиваем CORS, чтобы Vite (порт 5173) мог подключиться к NestJS (порт 3001)
 @WebSocketGateway({ cors: { origin: '*' } })
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server<ClientToServerEvents, ServerToClientEvents>;
 
-  // Игровой стейт в памяти сервера
   private players: GameState = {};
+
+  // === ВСПОМОГАТЕЛЬНЫЙ МЕТОД ДЛЯ ХП ===
+  private getClassMaxHp(classType: CharacterClass): number {
+    switch (classType) {
+      case 'Warrior': return 150;
+      case 'Rogue': return 120;
+      case 'Ranger': return 100;
+      default: return 100;
+    }
+  }
+
+  // === УНИВЕРСАЛЬНЫЙ МЕТОД ПОЛУЧЕНИЯ УРОНА ===
+  private applyDamage(targetId: string, damage: number, attackerId?: string) {
+    const target = this.players[targetId];
+    if (!target || target.hp <= 0) return;
+
+    const validDamage = Math.min(damage, 100);
+
+    target.hp -= validDamage;
+
+    if (target.hp <= 0) {
+      target.hp = 0;
+      this.server.emit('playerDied', {
+        victimId: target.id,
+        // Если attackerId нет, передаем undefined (или null, если так указано в твоих типах ServerToClientEvents)
+        killerId: attackerId
+      });
+    }
+
+    this.server.emit('playerHpChanged', {
+      id: target.id,
+      hp: target.hp,
+      maxHp: target.maxHp
+    });
+  }
 
   handleConnection(client: TypedSocket) {
     console.log(`Игрок подключился: ${client.id}`);
@@ -45,7 +78,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage('joinGame')
   handleJoinGame(client: TypedSocket, data: JoinGamePayload) {
-    console.log(`Игрок ${client.id} выбрал класс: ${data.classType} и никнейм: ${data.name}`);
+    console.log(`Игрок ${client.id} выбрал класс: ${data.classType} и ник: ${data.name}`);
+
+    const maxHp = this.getClassMaxHp(data.classType);
 
     this.players[client.id] = {
       id: client.id,
@@ -55,8 +90,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         z: (Math.random() - 0.5) * 5,
       },
       classType: data.classType,
-      hp: 100,
-      maxHp: 100,
+      hp: maxHp,
+      maxHp: maxHp,
       name: data.name
     };
 
@@ -65,48 +100,57 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage('move')
   handleMove(client: TypedSocket, data: MovePayload) {
-    if (this.players[client.id]) {
-      this.players[client.id].position = data.position;
+    const player = this.players[client.id];
+    // Мертвые не двигаются!
+    if (player && player.hp > 0) {
+      player.position = data.position;
       client.broadcast.emit('playerMoved', { id: client.id, ...data });
     }
   }
 
   @SubscribeMessage('shoot')
   handleShoot(client: TypedSocket, arrowData: ProjectilePayload) {
-    client.broadcast.emit('playerShot', arrowData);
+    const player = this.players[client.id];
+    // Мертвые не стреляют!
+    if (player && player.hp > 0) {
+      client.broadcast.emit('playerShot', arrowData);
+    }
   }
 
   @SubscribeMessage('spawnEffect')
   handleSpawnEffect(client: TypedSocket, effectData: EffectPayload) {
-    client.broadcast.emit('effectSpawned', effectData);
+    const player = this.players[client.id];
+    if (player && player.hp > 0) {
+      client.broadcast.emit('effectSpawned', effectData);
+    }
   }
 
   @SubscribeMessage('arrowHit')
   handleArrowHit(client: TypedSocket, data: ArrowHitPayload) {
+    // Останавливаем стрелу визуально для всех
     client.broadcast.emit('arrowHit', data);
 
-    if (data.targetId && this.players[data.targetId]) {
-      const target = this.players[data.targetId];
+    const attacker = data.shooterId ? this.players[data.shooterId] : undefined;
+    if (data.targetId && attacker) {
+      let damage = CLASS_BALANCE[attacker.classType].primaryDamage;
+      if (data.attackType === 'skill1') damage = CLASS_BALANCE[attacker.classType].skill1.damage;
+      if (data.attackType === 'skill2') damage = CLASS_BALANCE[attacker.classType].skill2.damage;
 
-      if (target.hp <= 0) return;
-
-      target.hp -= (data.damage || 25);
-
-      if (target.hp <= 0) {
-        target.hp = 0;
-
-        this.server.emit('playerDied', {
-          victimId: target.id,
-          killerId: data.shooterId || null
-        });
-      }
-
-      this.server.emit('playerHpChanged', {
-        id: target.id,
-        hp: target.hp,
-        maxHp: target.maxHp
-      });
+      this.applyDamage(data.targetId, damage, data.shooterId);
     }
+  }
+
+  @SubscribeMessage('meleeHit')
+  handleMeleeHit(client: TypedSocket, data: MeleeHitPayload) {
+    const attacker = this.players[client.id];
+
+    // Проверка 1: Атакующий существует и жив
+    if (!attacker || attacker.hp <= 0) return;
+    let damage = CLASS_BALANCE[attacker.classType].primaryDamage;
+    if (data.attackType === 'skill1') damage = CLASS_BALANCE[attacker.classType].skill1.damage;
+    if (data.attackType === 'skill2') damage = CLASS_BALANCE[attacker.classType].skill2.damage;
+
+    this.applyDamage(data.targetId, damage, client.id);
   }
 
   @SubscribeMessage('respawn')
@@ -116,8 +160,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       player.hp = player.maxHp;
       player.position = { x: (Math.random() - 0.5) * 10, y: 2, z: (Math.random() - 0.5) * 10 };
 
-      this.server.emit('gameState', this.players);
-
+      // Сообщаем всем новые координаты и ХП
       this.server.emit('playerHpChanged', {
         id: player.id,
         hp: player.hp,
@@ -127,31 +170,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.server.emit('playerRespawned', {
         id: player.id,
         position: player.position
-      });
-    }
-  }
-
-  @SubscribeMessage('meleeHit')
-  handleMeleeHit(client: TypedSocket, data: MeleeHitPayload) {
-    if (data.targetId && this.players[data.targetId]) {
-      const target = this.players[data.targetId];
-
-      if (target.hp <= 0) return;
-
-      target.hp -= data.damage;
-
-      if (target.hp <= 0) {
-        target.hp = 0;
-        this.server.emit('playerDied', {
-          victimId: target.id,
-          killerId: data.shooterId
-        });
-      }
-
-      this.server.emit('playerHpChanged', {
-        id: target.id,
-        hp: target.hp,
-        maxHp: target.maxHp
       });
     }
   }
