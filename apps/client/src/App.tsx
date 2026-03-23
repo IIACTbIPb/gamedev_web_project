@@ -29,7 +29,8 @@ import { PlayerManager } from '@/components/entities/characters';
 import { useGameSockets } from './hooks/useGameSockets';
 
 function App() {
-  const [isJoined, setIsJoined] = useState(false);
+  const isJoined = useUIStore((state) => state.isJoined);
+  const setIsJoined = useUIStore((state) => state.setIsJoined);
   const { isNight, keybinds } = useSettingsStore();
 
   // Подключаем наши игровые сокеты
@@ -53,6 +54,7 @@ function App() {
   const directionalLightIntensity = isNight ? 1.5 : 2.5;
 
   const handleJoin = (selectedClass: CharacterClass, playerName: string) => {
+    if (!socket.connected) socket.connect();
     socket.emit('joinGame', { classType: selectedClass, name: playerName });
     useUIStore.getState().setClassType(selectedClass);
     setIsJoined(true);
