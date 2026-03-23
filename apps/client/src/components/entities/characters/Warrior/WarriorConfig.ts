@@ -75,7 +75,7 @@ export const warriorConfig: ClassConfig<WarriorAnimation> = {
     {
       id: 'skill1',
       name: 'Heavy Cleave',
-      icon: '⚔️',
+      icon: '/warrior_skill1.png',
       cooldown: WARRIOR_STATS.skill1.cooldown,
       onUse: (player) => {
         player.currentAnimation = 'Sword_Attack2';

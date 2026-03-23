@@ -69,7 +69,7 @@ export const rogueConfig: ClassConfig<RogueAnimation> = {
     {
       id: 'skill1',
       name: 'Dagger Strike',
-      icon: '💥',
+      icon: '/rogue_skill.png',
       cooldown: ROGUE_STATS.skill1.cooldown,
       onUse: (player) => {
         player.currentAnimation = 'Dagger_Attack2';
@@ -129,7 +129,7 @@ export const rogueConfig: ClassConfig<RogueAnimation> = {
     {
       id: 'skill2',
       name: 'Invisibility',
-      icon: '👻',
+      icon: '/rogue_skill2.png',
       cooldown: ROGUE_STATS.skill2.cooldown,
       onUse: (player) => {
         player.isInvisible = true;
@@ -137,7 +137,7 @@ export const rogueConfig: ClassConfig<RogueAnimation> = {
           if (player) {
             player.isInvisible = false;
           }
-        }, ROGUE_STATS.skill2.duration);
+        }, ROGUE_STATS.skill2.duration * 1000);
       }
     }
   ]

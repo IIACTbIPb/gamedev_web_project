@@ -105,7 +105,7 @@ export const rangerConfig: ClassConfig<RangerAnimation> = {
     {
       id: 'skill1',
       name: 'Sprint',
-      icon: '💨',
+      icon: '/ranger_skill.png',
       cooldown: RANGER_STATS.skill1.cooldown,
       onUse: (player) => {
         player.currentAnimation = 'Idle_Attacking'

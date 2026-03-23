@@ -22,6 +22,13 @@
   font-size: 24px;
 }
 
+.skillBox img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
 .skillBoxHighlighted {
   border: 2px solid #FF4500;
 }

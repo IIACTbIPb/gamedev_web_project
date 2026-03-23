@@ -69,7 +69,10 @@ function App() {
       <SettingsMenu />
 
       <KeyboardControls map={keyboardMap}>
-        <Canvas camera={{ position: [0, 8, 15] }} dpr={[1, 2]}>
+        <Canvas
+          camera={{ position: [0, 8, 15] }}
+          dpr={[1, 2]}
+        >
           <color attach="background" args={[bgColor]} />
           <Perf position="top-right" />
 

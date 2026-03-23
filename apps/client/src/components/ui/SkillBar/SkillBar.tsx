@@ -33,7 +33,7 @@ export const SkillBar = () => {
             className={`${styles.skillBox} ${styles.skillBoxHighlighted}`}
             style={{ filter: isCooldown ? 'grayscale(100%) brightness(40%)' : 'none' }}
           >
-            {skill.icon}
+            <img src={skill.icon} alt={skill.name} />
             {isCooldown && (
               <div
                 style={{

@@ -41,6 +41,9 @@ export type Entity = {
   speed?: number;
   isSprinting?: boolean;
 
+  // === СЕТЕВАЯ ОПТИМИЗАЦИЯ ===
+  lastNetworkTick?: number;
+
   // === НОВОЕ СВОЙСТВО ДЛЯ КЛАССОВ ===
   classType?: CharacterClass;
 

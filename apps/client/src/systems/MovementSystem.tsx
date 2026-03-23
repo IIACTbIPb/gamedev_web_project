@@ -6,30 +6,29 @@ import { ECS } from '@/ecs';
 import { socket } from '@/socket';
 import { CLASSES_CONFIG } from '@/classesConfig';
 import { useUIStore } from '@/store';
-// === ИМПОРТИРУЕМ НАШ БАЛАНС ИЗ SHARED ПАКЕТА ===
 import { CLASS_BALANCE, type AnyAnimation } from '@game/shared';
 
 // === 1. ГЕЙМПЛЕЙНЫЕ КОНСТАНТЫ ===
 const CONFIG = {
-  // BASE_SPEED убран, теперь он берется из CLASS_BALANCE
   JUMP_FORCE: 8,
   ROTATION_SPEED_MOVING: 15,
   ROTATION_SPEED_AIMING: 20,
   GROUNDED_Y_VEL_THRESHOLD: 0.05,
   GROUNDED_FRAMES_MIN: 3,
-  NETWORK_SYNC_POS_TOLERANCE: 0.001,
-  NETWORK_SYNC_ROT_TOLERANCE: 0.01,
-  FORWARD_JUMP_FORCE: 10
+  NETWORK_SYNC_POS_TOLERANCE: 0.05,
+  NETWORK_SYNC_ROT_TOLERANCE: 0.05,
+  FORWARD_JUMP_FORCE: 10,
+  NETWORK_TICK_RATE: 0.05,
 };
 
-// === 2. ГЛОБАЛЬНЫЕ ВЕКТОРЫ (Оптимизация памяти) ===
-const direction = new Vector3();
-const frontVector = new Vector3();
-const sideVector = new Vector3();
-const upVector = new Vector3(0, 1, 0);
-const targetQuaternion = new Quaternion();
-const tempPos = new Vector3();
-const forwardDir = new Vector3(0, 0, 1);
+// === 2. ПЕРЕИСПОЛЬЗУЕМЫЕ ОБЪЕКТЫ (GC Optimization) ===
+const V_DIR = new Vector3();
+const V_FRONT = new Vector3();
+const V_SIDE = new Vector3();
+const V_UP = new Vector3(0, 1, 0);
+const Q_TARGET = new Quaternion();
+const V_TEMP_POS = new Vector3();
+const V_FORWARD_DIR = new Vector3(0, 0, 1);
 
 const localPlayers = ECS.world
   .with('rigidBody', 'isMe', 'threeObject')
@@ -39,30 +38,21 @@ export type Controls = 'forward' | 'backward' | 'left' | 'right' | 'jump' | 'ski
 
 export const MovementSystem = () => {
   const [, get] = useKeyboardControls<Controls>();
-  const { camera } = useThree();
-
+  const { camera, gl } = useThree();
   const groundedFrames = useRef(0);
 
-  // === 3. ГРУППИРОВКА СЕТЕВОГО СОСТОЯНИЯ ===
-  const lastSync = useRef({
-    position: new Vector3(),
-    rotation: new Quaternion(),
-    animation: 'Idle',
-    isAiming: false,
-    isInvisible: false,
-    isSprinting: false,
-  });
-
-  // === 4. ОБРАБОТКА МЫШИ (АТАКИ) ===
+  // === ОБРАБОТКА МЫШИ (Атаки) ===
   useEffect(() => {
-    // ... этот код остается без изменений ...
+    const canvas = gl.domElement;
+
     const handleMouseAction = (e: MouseEvent, isDown: boolean) => {
-      if (e.button !== 0 || (e.target as HTMLElement).tagName !== 'CANVAS') return;
+      if (e.button !== 0) return; // Только левая кнопка
 
       const player = localPlayers.first;
-      if (!player || !player.classType || player.currentAnimation === 'Roll') return;
+      if (!player || !player.classType || (player.hp !== undefined && player.hp <= 0)) return;
 
-      if (isDown && player.actionTimer && player.actionTimer > 0 && !player.isAiming) return;
+      const isActionLocked = player.actionTimer !== undefined && player.actionTimer > 0;
+      if (isDown && isActionLocked && !player.isAiming) return;
 
       const classLogic = CLASSES_CONFIG[player.classType];
       if (isDown) {
@@ -75,56 +65,57 @@ export const MovementSystem = () => {
     const onDown = (e: MouseEvent) => handleMouseAction(e, true);
     const onUp = (e: MouseEvent) => handleMouseAction(e, false);
 
-    window.addEventListener('mousedown', onDown);
+    // Нажатие слушаем ТОЛЬКО на холсте (защита от кликов по UI)
+    canvas.addEventListener('mousedown', onDown);
+    // Отпускание слушаем на window (гарантия срабатывания, если мышь ушла с холста)
     window.addEventListener('mouseup', onUp);
 
     return () => {
-      window.removeEventListener('mousedown', onDown);
+      canvas.removeEventListener('mousedown', onDown);
       window.removeEventListener('mouseup', onUp);
     };
-  }, [camera]);
+  }, [camera, gl]);
 
-  // === 5. ОСНОВНОЙ ИГРОВОЙ ЦИКЛ ===
+  const lastSync = useRef({
+    position: new Vector3(),
+    rotation: new Quaternion(),
+    animation: 'Idle' as AnyAnimation,
+    isAiming: false,
+    isInvisible: false,
+    isSprinting: false,
+  });
+
   useFrame((state, delta) => {
     const player = localPlayers.first;
-    if (!player || !player.rigidBody || !player.threeObject) return;
+    if (!player || !player.rigidBody || !player.threeObject || !player.classType) return;
 
     const body = player.rigidBody;
+    const balance = CLASS_BALANCE[player.classType];
 
-    // --- А. ПРОВЕРКА СМЕРТИ ---
-    if (player.hp !== undefined && player.hp <= 0) {
-      body.setLinvel({ x: 0, y: body.linvel().y, z: 0 }, true);
-      return;
-    }
-
-    // === ДОСТАЕМ БАЗОВУЮ СКОРОСТЬ КЛАССА ИЗ КОНФИГА ===
-    // Если по какой-то причине класса нет, делаем фолбэк на 5
-    const baseSpeed = player.classType ? CLASS_BALANCE[player.classType].baseSpeed : 5;
-
-    // --- Б. ОБНОВЛЕНИЕ ТАЙМЕРОВ (Action Lock и Speed Buffs) ---
+    // --- А. ОБНОВЛЕНИЕ ТАЙМЕРОВ (State Logic) ---
     let isActionLocked = false;
     if (player.actionTimer !== undefined && player.actionTimer > 0) {
       player.actionTimer -= delta;
       isActionLocked = true;
     }
 
-    let currentSpeed = baseSpeed; // <-- Используем скорость из баланса!
+    let currentSpeed = balance.baseSpeed;
     let isSprinting = false;
 
     if (player.speedBuffTimer !== undefined && player.speedBuffTimer > 0) {
       player.speedBuffTimer -= delta;
-      currentSpeed = player.speed || baseSpeed; // <-- Фолбэк на базовую
+      currentSpeed = player.speed || balance.baseSpeed;
       isSprinting = true;
     } else {
       player.speedBuffTimer = 0;
-      player.speed = baseSpeed; // <-- Возвращаем в дефолт после спринта
+      player.speed = balance.baseSpeed;
     }
 
     if (isActionLocked) currentSpeed = 0;
 
-    // --- В. ПРИМЕНЕНИЕ НАВЫКОВ (Skills) ---
+    // --- Б. ОБРАБОТКА СКИЛЛОВ ---
     const keys = get();
-    if (!isActionLocked && player.classType) {
+    if (!isActionLocked) {
       const skills = CLASSES_CONFIG[player.classType]?.skills;
       if (skills) {
         for (const skill of skills) {
@@ -139,116 +130,109 @@ export const MovementSystem = () => {
       }
     }
 
-    // --- Г. ФИЗИКА, ВЕКТОРЫ И ДВИЖЕНИЕ (Locomotion) ---
+    // --- В. ФИЗИКА ---
     const currentVelocity = body.linvel();
-
     const isGroundedVelocity = Math.abs(currentVelocity.y) < CONFIG.GROUNDED_Y_VEL_THRESHOLD;
     groundedFrames.current = isGroundedVelocity ? groundedFrames.current + 1 : 0;
     const isGrounded = groundedFrames.current > CONFIG.GROUNDED_FRAMES_MIN;
 
-    state.camera.getWorldDirection(frontVector);
-    frontVector.y = 0;
-    frontVector.normalize();
-    sideVector.copy(frontVector).cross(state.camera.up).normalize();
+    state.camera.getWorldDirection(V_FRONT);
+    V_FRONT.y = 0;
+    V_FRONT.normalize();
+    V_SIDE.copy(V_FRONT).cross(state.camera.up).normalize();
 
-    direction.set(0, 0, 0);
-    if (keys.forward) direction.add(frontVector);
-    if (keys.backward) direction.sub(frontVector);
-    if (keys.right) direction.add(sideVector);
-    if (keys.left) direction.sub(sideVector);
+    V_DIR.set(0, 0, 0);
+    if (keys.forward) V_DIR.add(V_FRONT);
+    if (keys.backward) V_DIR.sub(V_FRONT);
+    if (keys.right) V_DIR.add(V_SIDE);
+    if (keys.left) V_DIR.sub(V_SIDE);
 
-    const isMoving = direction.lengthSq() > 0;
+    const isMoving = V_DIR.lengthSq() > 0;
 
     if (player.isAiming) {
-      const targetAngle = Math.atan2(frontVector.x, frontVector.z);
-      targetQuaternion.setFromAxisAngle(upVector, targetAngle);
-      player.threeObject.quaternion.slerp(targetQuaternion, delta * CONFIG.ROTATION_SPEED_AIMING);
+      const targetAngle = Math.atan2(V_FRONT.x, V_FRONT.z);
+      Q_TARGET.setFromAxisAngle(V_UP, targetAngle);
+      player.threeObject.quaternion.slerp(Q_TARGET, delta * CONFIG.ROTATION_SPEED_AIMING);
     } else if (isMoving && !isActionLocked) {
-      const targetAngle = Math.atan2(direction.x, direction.z);
-      targetQuaternion.setFromAxisAngle(upVector, targetAngle);
-      player.threeObject.quaternion.slerp(targetQuaternion, delta * CONFIG.ROTATION_SPEED_MOVING);
+      const targetAngle = Math.atan2(V_DIR.x, V_DIR.z);
+      Q_TARGET.setFromAxisAngle(V_UP, targetAngle);
+      player.threeObject.quaternion.slerp(Q_TARGET, delta * CONFIG.ROTATION_SPEED_MOVING);
     }
 
-    direction.normalize().multiplyScalar(currentSpeed);
+    V_DIR.normalize().multiplyScalar(currentSpeed);
 
     if (isGrounded) {
-      body.setLinvel({ x: direction.x, y: currentVelocity.y, z: direction.z }, true);
+      body.setLinvel({ x: V_DIR.x, y: currentVelocity.y, z: V_DIR.z }, true);
     } else {
       const airControl = 0.05;
-      const newX = currentVelocity.x + (direction.x - currentVelocity.x) * airControl;
-      const newZ = currentVelocity.z + (direction.z - currentVelocity.z) * airControl;
-      body.setLinvel({ x: newX, y: currentVelocity.y, z: newZ }, true);
+      body.setLinvel({
+        x: currentVelocity.x + (V_DIR.x - currentVelocity.x) * airControl,
+        y: currentVelocity.y,
+        z: currentVelocity.z + (V_DIR.z - currentVelocity.z) * airControl
+      }, true);
     }
 
     if (keys.jump && isGrounded && !isActionLocked) {
-      forwardDir.set(0, 0, 1)
-        .applyQuaternion(player.threeObject.quaternion)
-        .normalize();
-
+      V_FORWARD_DIR.set(0, 0, 1).applyQuaternion(player.threeObject.quaternion).normalize();
       body.applyImpulse({
-        x: forwardDir.x * CONFIG.FORWARD_JUMP_FORCE,
+        x: V_FORWARD_DIR.x * CONFIG.FORWARD_JUMP_FORCE,
         y: CONFIG.JUMP_FORCE,
-        z: forwardDir.z * CONFIG.FORWARD_JUMP_FORCE
+        z: V_FORWARD_DIR.z * CONFIG.FORWARD_JUMP_FORCE
       }, true);
-
       groundedFrames.current = 0;
-
-      const classLogic = CLASSES_CONFIG[player.classType!];
-      if (classLogic) {
-        player.currentAnimation = classLogic.locomotion.airborne as AnyAnimation;
-      }
     }
 
-    const isAirborne = !isGrounded && groundedFrames.current === 0;
-
-    // --- Д. АНИМАЦИИ ---
-    if (!isActionLocked && !player.isAiming && player.classType) {
+    // --- Г. АНИМАЦИИ ---
+    if (!isActionLocked && !player.isAiming) {
       const classLogic = CLASSES_CONFIG[player.classType];
-
       if (classLogic) {
-        if (groundedFrames.current > 0) {
+        if (isGrounded) {
           player.currentAnimation = isMoving
             ? classLogic.locomotion.run as AnyAnimation
             : classLogic.locomotion.idle as AnyAnimation;
-        } else if (isAirborne) {
+        } else {
           player.currentAnimation = classLogic.locomotion.airborne as AnyAnimation;
         }
       }
     }
 
-    // --- Е. СЕТЕВАЯ СИНХРОНИЗАЦИЯ ---
-    const currentPos = body.translation();
-    const currentRot = player.threeObject.quaternion;
-    const currentAnim = player.currentAnimation || 'Idle';
-    const currentAiming = !!player.isAiming;
-    const currentInvisible = !!player.isInvisible;
+    // --- Д. СЕТЬ ---
+    if (player.lastNetworkTick === undefined) player.lastNetworkTick = 0;
+    player.lastNetworkTick += delta;
 
-    tempPos.set(currentPos.x, currentPos.y, currentPos.z);
-    const sync = lastSync.current;
+    if (player.lastNetworkTick >= CONFIG.NETWORK_TICK_RATE) {
+      const currentPos = body.translation();
+      const currentRot = player.threeObject.quaternion;
+      const currentAnim = player.currentAnimation || 'Idle';
 
-    const posChanged = sync.position.distanceToSquared(tempPos) > CONFIG.NETWORK_SYNC_POS_TOLERANCE;
-    const rotChanged = sync.rotation.angleTo(currentRot) > CONFIG.NETWORK_SYNC_ROT_TOLERANCE;
-    const animChanged = currentAnim !== sync.animation;
-    const aimingChanged = currentAiming !== sync.isAiming;
-    const invisibleChanged = currentInvisible !== sync.isInvisible;
-    const sprintingChanged = isSprinting !== sync.isSprinting;
+      V_TEMP_POS.set(currentPos.x, currentPos.y, currentPos.z);
+      const sync = lastSync.current;
 
-    if (posChanged || rotChanged || animChanged || aimingChanged || invisibleChanged || sprintingChanged) {
-      socket.emit('move', {
-        position: currentPos,
-        rotation: [currentRot.x, currentRot.y, currentRot.z, currentRot.w],
-        animation: currentAnim,
-        isAiming: currentAiming,
-        isInvisible: currentInvisible,
-        isSprinting: isSprinting,
-      });
+      const posChanged = sync.position.distanceToSquared(V_TEMP_POS) > CONFIG.NETWORK_SYNC_POS_TOLERANCE;
+      const rotChanged = sync.rotation.angleTo(currentRot) > CONFIG.NETWORK_SYNC_ROT_TOLERANCE;
+      const stateChanged = currentAnim !== sync.animation ||
+        !!player.isAiming !== sync.isAiming ||
+        !!player.isInvisible !== sync.isInvisible ||
+        isSprinting !== sync.isSprinting;
 
-      sync.position.copy(tempPos);
-      sync.rotation.copy(currentRot);
-      sync.animation = currentAnim;
-      sync.isAiming = currentAiming;
-      sync.isInvisible = currentInvisible;
-      sync.isSprinting = isSprinting;
+      if (posChanged || rotChanged || stateChanged) {
+        socket.emit('move', {
+          position: currentPos,
+          rotation: [currentRot.x, currentRot.y, currentRot.z, currentRot.w],
+          animation: currentAnim,
+          isAiming: !!player.isAiming,
+          isInvisible: !!player.isInvisible,
+          isSprinting: isSprinting,
+        });
+
+        sync.position.copy(V_TEMP_POS);
+        sync.rotation.copy(currentRot);
+        sync.animation = currentAnim;
+        sync.isAiming = !!player.isAiming;
+        sync.isInvisible = !!player.isInvisible;
+        sync.isSprinting = isSprinting;
+      }
+      player.lastNetworkTick = 0;
     }
   });
 

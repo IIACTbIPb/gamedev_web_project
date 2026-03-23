@@ -1,14 +1,16 @@
 import { useEntities } from 'miniplex-react';
-import { ECS } from '@/ecs';
 import { DaggerHitEffect } from './DaggerHitEffect';
 import { WarriorCleaveEffect } from './WarriorCleaveEffect';
 import { RangerSprintTrail } from './RangerSprintTrail';
+import { EffectPrewarmer } from './EffectPrewarmer';
+import { ECS } from '@/ecs';
 
 export const Effects = () => {
   const { entities } = useEntities(ECS.world.with('isEffect', 'effectType', 'position'));
 
   return (
     <>
+      <EffectPrewarmer />
       {entities.map((entity) => {
         if (entity.effectType === 'DaggerHit') {
           return (
